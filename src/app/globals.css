@@ -1,3 +1,23 @@
+/* 파일 경로: src/app/globals.css */
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    display: none;
+  }
+  
+  @keyframes shimmer { 
+    100% { transform: translateX(100%); } 
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+}
