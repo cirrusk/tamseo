@@ -69,7 +69,6 @@ const NavBar = ({ currentView, setCurrentView }: any) => (
   <nav className="fixed top-0 w-full z-50 bg-[#F5F5F7]/80 backdrop-blur-xl border-b border-black/[0.05] supports-[backdrop-filter]:bg-[#F5F5F7]/60">
     <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
       <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { setCurrentView('search'); window.scrollTo(0,0); }}>
-        <div className="transition-transform group-hover:scale-105 shrink-0"><TamseoLogo /></div>
         <div className="flex items-baseline">
           <span className="text-[15px] font-bold tracking-tight text-[#1D1D1F]">탐서</span>
           <span className="text-[10px] font-semibold text-[#86868B] ml-2.5 tracking-[0.2em] uppercase hidden sm:inline-block">Tamseo</span>
