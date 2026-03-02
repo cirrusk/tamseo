@@ -1,33 +1,46 @@
-// 파일 경로: src/app/page.tsx
-
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
-import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, XCircle, Info, Filter, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, XCircle, Info, Filter, X, Loader2, ChevronDown, ChevronUp, Library as LibraryIcon, ChevronLeft, Check, Mail, MessageSquare } from 'lucide-react';
 
 // =========================================================================
-// 🛠️ CANVAS PREVIEW MOCKS
-// (미리보기 환경에서 next/navigation 및 외부 모듈을 임시로 대체합니다)
+// 🛠️ [에러 수정 포인트 2] 캔버스 미리보기용 모듈 대체
+// 캔버스 환경 오류를 막기 위해 실제 import 대신 내부 함수로 대체했습니다.
+// 실제 프로젝트(남편분 작업)에서는 이 부분을 아래 코드로 바꾸셔야 합니다:
+// import { useSearchParams, useRouter } from 'next/navigation';
 // =========================================================================
-const useSearchParams = () => new URLSearchParams('');
-const useRouter = () => ({ replace: () => {}, push: () => {} });
+import { useSearchParams, useRouter } from 'next/navigation';
 
+// --- TYPES ---
 interface BookMetadata { title: string; author: string; publisher: string; pubYear: string; isbn: string; imageUrl?: string; }
 interface LibraryAvailability { libraryName: string; isAvailable: boolean; }
 interface GroupedBookResult { metadata: BookMetadata; libraries: LibraryAvailability[]; }
-export interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
-export interface LibraryInfo { district: string; name: string; address: string; }
+interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
+interface LibraryInfo { district: string; name: string; address: string; }
+interface BookCollection { id: string; brand: string; title: string; category: string; ageGroup: string; description: string; books: string[]; }
 
-export const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
-export const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
-export const SEOUL_LIBRARIES: LibraryInfo[] = [
+// =========================================================================
+// 🛠️ [에러 수정 포인트 1] export 키워드 삭제
+// Next.js App Router의 page.tsx 파일에서는 정해진 변수 외에는 'export'를 사용할 수 없습니다.
+// 도커 빌드 에러의 원인이었던 'export' 단어를 모두 제거했습니다.
+// =========================================================================
+const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
+const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
+const SEOUL_LIBRARIES: LibraryInfo[] = [
   { district: "마포구", name: "마포중앙도서관", address: "서울 마포구 성산로 128" },
   { district: "마포구", name: "마포평생학습관", address: "서울 마포구 홍익로2길 16" },
   { district: "강남구", name: "강남구립못골도서관", address: "서울 강남구 자곡로 116" },
   { district: "강남구", name: "강남도서관", address: "서울 강남구 선릉로116길 45" },
 ];
 
-export const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
+const BRANDS = ["전체", "그레이트북스", "아람북스", "비룡소", "키즈스콜레", "무지개출판사"];
+const KIDS_COLLECTIONS: BookCollection[] = [
+  { id: "c1", brand: "그레이트북스", title: "내 친구 과학공룡", category: "과학", ageGroup: "4~7세", description: "아이들의 호기심을 채워주는 재미있는 과학 그림책", books: ["요리조리 빙글빙글", "뼈뼈 사우루스", "자석의 비밀", "우주로 간 라이카", "물방울의 여행", "소화가 꿀꺽꿀꺽"] },
+  { id: "c2", brand: "그레이트북스", title: "내 친구 수학공룡", category: "수학", ageGroup: "4~7세", description: "일상 속 수학의 원리를 깨우치는 스토리텔링 수학", books: ["모양 친구들 숨바꼭질", "1부터 10까지 세어봐", "크다 작다 길다 짧다", "시간을 재어보자"] },
+  { id: "c3", brand: "아람북스", title: "자연이랑", category: "자연관찰", ageGroup: "0~3세", description: "생생한 사진과 이야기로 만나는 첫 자연관찰 전집", books: ["호랑이는 무서워", "사자는 동물의 왕", "코끼리 코는 길어", "기린은 목이 길어", "팬더는 대나무를 좋아해"] },
+];
+
+const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const mockResults = bookTitles.map((title, idx) => ({
@@ -42,14 +55,20 @@ export const fetchLibraryData = async (districtCode: string, bookTitles: string[
   });
 };
 
+// --- 공통 UI 컴포넌트 ---
+const TamseoLogo = ({ className = "" }: { className?: string }) => (
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect width="28" height="28" rx="7" fill="#1D1D1F"/>
+    <path d="M8.5 11C8.5 9.89543 9.39543 9 10.5 9H13.5V19H10.5C9.39543 19 8.5 18.1046 8.5 17V11Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19.5 11C19.5 9.89543 18.6046 9 17.5 9H14.5V19H17.5C18.6046 19 19.5 18.1046 19.5 17V11Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
-// ✨ [수정됨] 지역 도서관 모달 (DB API 연동 및 로딩 상태 추가)
 const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [libraries, setLibraries] = useState<LibraryInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDistrictName, setSelectedDistrictName] = useState<string>("All");
 
-  // 모달이 열릴 때 한 번만 전체 도서관 목록을 백엔드에서 가져옵니다.
   useEffect(() => {
     if (isOpen && libraries.length === 0) {
       setLoading(true);
@@ -63,7 +82,6 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         })
         .catch(err => {
           console.error("도서관 목록 호출 실패:", err);
-          // Canvas 미리보기를 위한 예외 처리(Mock Data 적용)
           setTimeout(() => setLibraries(SEOUL_LIBRARIES), 800);
         })
         .finally(() => setTimeout(() => setLoading(false), 800));
@@ -71,7 +89,6 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   }, [isOpen, libraries.length]);
 
   if (!isOpen) return null;
-  
   const districtNames = Object.values(DISTRICT_NAMES).sort();
   const filteredLibraries = selectedDistrictName === "All" ? libraries : libraries.filter(lib => lib.district === selectedDistrictName);
 
@@ -85,16 +102,12 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-[#F5F5F7] text-[#86868B] hover:text-[#1D1D1F] rounded-full transition-colors"><X size={18} /></button>
         </div>
-        
-        {/* 지역 필터 탭 */}
         <div className="px-6 py-4 bg-white shrink-0 border-b border-[#E5E5EA]">
           <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
             <button onClick={() => setSelectedDistrictName("All")} className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${selectedDistrictName === "All" ? "bg-[#1D1D1F] text-white" : "bg-[#F5F5F7] text-[#86868B] hover:bg-[#E5E5EA] hover:text-[#1D1D1F]"}`}>전체</button>
             {districtNames.map(dName => (<button key={dName} onClick={() => setSelectedDistrictName(dName)} className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${selectedDistrictName === dName ? "bg-[#1D1D1F] text-white" : "bg-[#F5F5F7] text-[#86868B] hover:bg-[#E5E5EA] hover:text-[#1D1D1F]"}`}>{dName}</button>))}
           </div>
         </div>
-        
-        {/* 도서관 목록 리스트 영역 */}
         <div className="overflow-y-auto p-6 grow bg-white custom-scrollbar">
           <ul className="divide-y divide-[#F5F5F7]">
             {loading ? (
@@ -126,8 +139,8 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   );
 };
 
-// ... 아래는 기존 SearchContent 및 App 컴포넌트 내용과 100% 동일하게 이어집니다 ...
-function SearchContent() {
+// --- 검색 기능 컴포넌트 ---
+function SearchContent({ injectedBooks, setInjectedBooks, setCurrentView }: any) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -152,17 +165,15 @@ function SearchContent() {
   const getBookKey = (tIdx: number, bIdx: number) => `book-${tIdx}-${bIdx}`;
 
   useEffect(() => {
-    const booksQuery = searchParams.get('books');
-    if (booksQuery) {
-      const books = decodeURIComponent(booksQuery).split(',');
+    if (injectedBooks && injectedBooks.length > 0) {
       setBookInput(prev => {
         const existing = prev.split('\n').map(b => b.trim()).filter(b => b.length > 0);
-        const combined = Array.from(new Set([...existing, ...books])).slice(0, 5);
+        const combined = Array.from(new Set([...existing, ...injectedBooks])).slice(0, 5);
         return combined.join('\n');
       });
-      router.replace('/', { scroll: false } as any);
+      setInjectedBooks([]);
     }
-  }, [searchParams, router]);
+  }, [injectedBooks, setInjectedBooks]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -267,9 +278,7 @@ function SearchContent() {
 
   const ResultsSkeleton = () => (
     <div className="mt-20 space-y-8 animate-pulse">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16">
-        <div className="h-40 bg-white rounded-[24px] border border-[#E5E5EA]"></div><div className="h-40 bg-[#E5E5EA] rounded-[24px]"></div>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-16"><div className="h-40 bg-white rounded-[24px] border border-[#E5E5EA]"></div><div className="h-40 bg-[#E5E5EA] rounded-[24px]"></div></div>
       {[1, 2].map((i) => (
         <div key={i} className="bg-white rounded-[24px] p-8 md:p-10 border border-[#E5E5EA] flex flex-col md:flex-row gap-8">
           <div className="w-[140px] md:w-[180px] aspect-[2/3] bg-[#F5F5F7] rounded-[4px] shrink-0 mx-auto md:mx-0"></div>
@@ -312,11 +321,6 @@ function SearchContent() {
               </div>
             </div>
           </div>
-          <div className={`mt-5 text-center transition-opacity duration-500 ${searched ? 'opacity-0 h-0 overflow-hidden mt-0' : 'opacity-100'}`}>
-            <p className="text-[12px] md:text-[13px] text-[#86868B] flex items-center justify-center gap-1.5 font-medium">
-              <Info size={14} className="shrink-0" /> 한 번에 최대 5권까지 검색 가능하며, 검색어당 인기 도서 상위 3권까지 자동으로 검색됩니다.
-            </p>
-          </div>
         </form>
       </div>
 
@@ -329,7 +333,6 @@ function SearchContent() {
               <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Insights</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              
               <div className="bg-white rounded-[24px] p-6 sm:p-8 shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-[#E5E5EA] flex flex-col hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
                 <div className="flex items-center gap-2 mb-6"><div className="w-8 h-8 rounded-full bg-[#F5F5F7] flex items-center justify-center shrink-0"><BookOpen size={16} className="text-[#86868B]" /></div><span className="text-[13px] font-bold text-[#86868B]">가장 많은 종류를 보유한 곳</span></div>
                 <div className="flex-1 flex flex-col justify-center">
@@ -476,10 +479,61 @@ function SearchContent() {
   );
 }
 
-export default function Page() {
+// --- 기타 페이지 (소개, 전집, 정책) ---
+const AboutPage = () => (
+  <div className="pt-28 pb-32 px-6 max-w-[700px] mx-auto animate-in fade-in slide-in-from-bottom-8 duration-[1000ms] ease-out text-center">
+    <h1 className="text-[36px] md:text-[52px] font-bold tracking-tight text-[#1D1D1F] leading-[1.2] mb-6">가장 아날로그적인 온기를 위한,<br />가장 스마트한 연결.</h1>
+    <p className="text-[17px] text-[#515154] font-medium mt-10">탐서 브랜드 스토리 페이지입니다.</p>
+  </div>
+);
+
+const CollectionsPage = ({ onSendToSearch }: any) => (
+  <div className="pt-28 pb-32 px-6 max-w-[700px] mx-auto animate-in fade-in text-center">
+    <h1 className="text-[36px] font-bold tracking-tight text-[#1D1D1F] mb-6">전집 탐색</h1>
+    <button onClick={() => onSendToSearch(['샘플 도서 1', '샘플 도서 2'])} className="bg-[#1D1D1F] text-white px-6 py-2 rounded-full">검색창으로 이동</button>
+  </div>
+);
+
+const PrivacyPolicyPage = () => (
+  <div className="pt-28 pb-32 px-6 max-w-[700px] mx-auto animate-in fade-in text-center">
+    <h1 className="text-[36px] font-bold tracking-tight text-[#1D1D1F] mb-6">개인정보 처리방침</h1>
+  </div>
+);
+
+// --- 최상위 앱 ---
+export default function App() {
+  const [currentView, setCurrentView] = useState<'search' | 'about' | 'collections' | 'privacy'>('search');
+  const [injectedBooks, setInjectedBooks] = useState<string[]>([]);
+  const [showPrivacyBanner, setShowPrivacyBanner] = useState(false);
+
+  useEffect(() => {
+    const hasConsented = localStorage.getItem('tamseo-privacy-consent');
+    if (!hasConsented) setShowPrivacyBanner(true);
+  }, []);
+
   return (
-    <Suspense fallback={<div className="pt-32 pb-32 text-center text-[#86868B] font-medium">로딩 중입니다...</div>}>
-      <SearchContent />
-    </Suspense>
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] selection:bg-black selection:text-white antialiased" style={{ fontFamily: "'Pretendard', sans-serif" }}>
+      <nav className="fixed top-0 w-full z-50 bg-[#F5F5F7]/80 backdrop-blur-xl border-b border-black/[0.05] supports-[backdrop-filter]:bg-[#F5F5F7]/60">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentView('search')}>
+            <div className="transition-transform group-hover:scale-105 shrink-0"><TamseoLogo /></div>
+            <div className="flex items-baseline"><span className="text-[15px] font-bold tracking-tight text-[#1D1D1F]">탐서</span></div>
+          </div>
+          <div className="flex items-center gap-6">
+            <button onClick={() => setCurrentView('about')} className="text-[13px] font-bold">소개</button>
+            <button onClick={() => setCurrentView('collections')} className="text-[13px] font-bold px-4 py-1.5 rounded-full bg-white border border-[#E5E5EA]">전집 탐색</button>
+          </div>
+        </div>
+      </nav>
+
+      {currentView === 'search' && <SearchContent injectedBooks={injectedBooks} setInjectedBooks={setInjectedBooks} setCurrentView={setCurrentView} />}
+      {currentView === 'about' && <AboutPage />}
+      {currentView === 'collections' && <CollectionsPage onSendToSearch={(b: string[]) => { setInjectedBooks(b); setCurrentView('search'); }} />}
+      {currentView === 'privacy' && <PrivacyPolicyPage />}
+
+      <footer className="border-t border-[#E5E5EA] py-12 mt-16 text-center">
+         <button onClick={() => setCurrentView('privacy')} className="text-[12px] font-medium text-[#86868B] hover:text-[#1D1D1F]">개인정보처리방침</button>
+      </footer>
+    </div>
   );
 }
