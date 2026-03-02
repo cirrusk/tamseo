@@ -16,19 +16,19 @@ const useRouter = () => ({ replace: () => {}, push: () => {} });
 interface BookMetadata { title: string; author: string; publisher: string; pubYear: string; isbn: string; imageUrl?: string; }
 interface LibraryAvailability { libraryName: string; isAvailable: boolean; }
 interface GroupedBookResult { metadata: BookMetadata; libraries: LibraryAvailability[]; }
-export interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
-export interface LibraryInfo { district: string; name: string; address: string; }
+interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
+interface LibraryInfo { district: string; name: string; address: string; }
 
-export const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
-export const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
-export const SEOUL_LIBRARIES: LibraryInfo[] = [
+const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
+const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
+const SEOUL_LIBRARIES: LibraryInfo[] = [
   { district: "마포구", name: "마포중앙도서관", address: "서울 마포구 성산로 128" },
   { district: "마포구", name: "마포평생학습관", address: "서울 마포구 홍익로2길 16" },
   { district: "강남구", name: "강남구립못골도서관", address: "서울 강남구 자곡로 116" },
   { district: "강남구", name: "강남도서관", address: "서울 강남구 선릉로116길 45" },
 ];
 
-export const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
+const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const mockResults = bookTitles.map((title, idx) => ({
