@@ -92,7 +92,7 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         
         {/* 지역 필터 탭 */}
         <div className="px-6 py-4 bg-white shrink-0 border-b border-[#E5E5EA]">
-          <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto custom-scrollbar">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => setSelectedDistrictName("All")} className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${selectedDistrictName === "All" ? "bg-[#1D1D1F] text-white" : "bg-[#F5F5F7] text-[#86868B] hover:bg-[#E5E5EA] hover:text-[#1D1D1F]"}`}>전체</button>
             {districtNames.map(dName => (<button key={dName} onClick={() => setSelectedDistrictName(dName)} className={`px-4 py-1.5 rounded-full text-[13px] font-bold transition-colors ${selectedDistrictName === dName ? "bg-[#1D1D1F] text-white" : "bg-[#F5F5F7] text-[#86868B] hover:bg-[#E5E5EA] hover:text-[#1D1D1F]"}`}>{dName}</button>))}
           </div>

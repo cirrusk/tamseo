@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const API_KEY = process.env.LIBRARY_API_KEY?.trim();
 
 const DISTRICT_NAME_TO_CODE: Record<string, string> = {
@@ -35,6 +38,13 @@ const FALLBACK_LIBRARIES = [
   { district: "마포구", name: "마포평생학습관", address: "서울 마포구 홍익로2길 16" },
   { district: "강남구", name: "강남구립못골도서관", address: "서울 강남구 자곡로 116" },
   { district: "강남구", name: "강남도서관", address: "서울 강남구 선릉로116길 45" },
+  { district: "서초구", name: "국립중앙도서관", address: "서울 서초구 반포대로 201" },
+  { district: "종로구", name: "정독도서관", address: "서울 종로구 북촌로5길 48" },
+  { district: "송파구", name: "송파도서관", address: "서울 송파구 동남로 263" },
+  { district: "용산구", name: "용산도서관", address: "서울 용산구 두텁바위로 160" },
+  { district: "관악구", name: "관악도서관", address: "서울 관악구 신림로3길 35" },
+  { district: "중구", name: "남산도서관", address: "서울 중구 소파로 46" },
+  { district: "중랑구", name: "중랑구립정보도서관", address: "서울 중랑구 신내로15길 197" },
 ];
 
 export async function GET() {
@@ -45,7 +55,7 @@ export async function GET() {
   try {
     const res = await fetch(
       `http://data4library.kr/api/libSrch?authKey=${API_KEY}&region=11&pageSize=500&format=json`,
-      { next: { revalidate: 60 * 60 * 24 } }
+      { cache: "no-store", signal: AbortSignal.timeout(8000) }
     );
 
     if (!res.ok) {
