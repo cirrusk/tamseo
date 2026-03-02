@@ -11,7 +11,10 @@ import { TamseoLogo } from '@/components/SharedUI';
 // (미리보기 환경에서 next/navigation 및 외부 모듈을 임시로 대체합니다)
 // =========================================================================
 const useSearchParams = () => new URLSearchParams('');
-const useRouter = () => ({ replace: () => {}, push: () => {} });
+const useRouter = () => ({
+  replace: (..._args: any[]) => {},
+  push: (..._args: any[]) => {},
+});
 
 interface BookMetadata { title: string; author: string; publisher: string; pubYear: string; isbn: string; imageUrl?: string; }
 interface LibraryAvailability { libraryName: string; isAvailable: boolean; }
@@ -128,7 +131,13 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 };
 
 // ... 아래는 기존 SearchContent 및 App 컴포넌트 내용과 100% 동일하게 이어집니다 ...
-function SearchContent() {
+function SearchContent({
+  injectedBooks,
+  setInjectedBooks,
+}: {
+  injectedBooks: string[];
+  setInjectedBooks: React.Dispatch<React.SetStateAction<string[]>>;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -164,6 +173,20 @@ function SearchContent() {
       router.replace('/', { scroll: false } as any);
     }
   }, [searchParams, router]);
+
+  useEffect(() => {
+    if (injectedBooks.length === 0) return;
+
+    setBookInput((prev) => {
+      const existing = prev
+        .split('\n')
+        .map((b) => b.trim())
+        .filter((b) => b.length > 0);
+      const combined = Array.from(new Set([...existing, ...injectedBooks])).slice(0, 5);
+      return combined.join('\n');
+    });
+    setInjectedBooks([]);
+  }, [injectedBooks, setInjectedBooks]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -534,7 +557,7 @@ export default function App() {
         </div>
       </nav>
 
-      {currentView === 'search' && <SearchContent injectedBooks={injectedBooks} setInjectedBooks={setInjectedBooks} setCurrentView={setCurrentView} />}
+      {currentView === 'search' && <SearchContent injectedBooks={injectedBooks} setInjectedBooks={setInjectedBooks} />}
       {currentView === 'about' && <AboutPage />}
       {currentView === 'collections' && <CollectionsPage onSendToSearch={(b: string[]) => { setInjectedBooks(b); setCurrentView('search'); }} />}
       {currentView === 'privacy' && <PrivacyPolicyPage />}
