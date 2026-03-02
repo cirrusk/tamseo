@@ -4,6 +4,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, XCircle, Info, Filter, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { TamseoLogo } from '@/components/SharedUI';
 
 // =========================================================================
 // 🛠️ CANVAS PREVIEW MOCKS
