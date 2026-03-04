@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SearchEvent {
+  id                String             @id @default(cuid())
+  createdAt         DateTime           @default(now())
+  requestId         String             @unique
+  ipHash            String
+  ipRaw             String?
+  userAgentRaw      String
+  deviceType        String
+  osName            String?
+  browserName       String?
+  districtCode      String
+  districtName      String?
+  queries           Json
+  normalizedQueries Json
+  queryCount        Int
+  resultCount       Int                @default(0)
+  latencyMs         Int?
+  statusCode        Int
+  success           Boolean
+  errorCode         String?
+  queryRows         SearchEventQuery[]
+
+  @@index([createdAt(sort: Desc)])
+  @@index([ipHash, createdAt(sort: Desc)])
+  @@index([deviceType, createdAt(sort: Desc)])
+}
+
+model SearchEventQuery {
+  id         String      @id @default(cuid())
+  eventId    String
+  normalized String
+  original   String?
+  createdAt  DateTime    @default(now())
+  event      SearchEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([normalized, createdAt(sort: Desc)])
+  @@index([eventId])
+}
+
+model DailyRateLimit {
+  id        String   @id @default(cuid())
+  day       DateTime
+  ipHash    String
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([day, ipHash])
+  @@index([day, count(sort: Desc)])
+}

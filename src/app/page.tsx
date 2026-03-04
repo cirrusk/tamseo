@@ -32,18 +32,24 @@ const SEOUL_LIBRARIES: LibraryInfo[] = [
 ];
 
 const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockResults = bookTitles.map((title, idx) => ({
-        searchTerm: title,
-        books: [{
-            metadata: { title: `${title}`, author: idx % 2 === 0 ? "한강" : "김호연", publisher: "문학동네", pubYear: "2023", isbn: `979110000000${idx}`, imageUrl: idx % 2 === 0 ? "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop" : "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop" },
-            libraries: [ { libraryName: "마포중앙도서관", isAvailable: true }, { libraryName: "강남구립못골도서관", isAvailable: idx % 2 !== 0 } ]
-        }]
-      }));
-      resolve(mockResults);
-    }, 1500);
+  const params = new URLSearchParams({
+    district: districtCode,
+    queries: bookTitles.join(','),
   });
+  const response = await fetch(`/api/search?${params.toString()}`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    let message = `검색 API 요청 실패 (${response.status})`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody?.error) message = errorBody.error;
+    } catch {}
+    throw new Error(message);
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
 };
 
 
@@ -141,7 +147,7 @@ function SearchContent({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [districtCode, setDistrictCode] = useState<string>("11140"); 
+  const [districtCode, setDistrictCode] = useState<string>("11070"); 
   const [bookInput, setBookInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [results, setResults] = useState<SearchResultItem[] | null>(null);
@@ -224,7 +230,11 @@ function SearchContent({
       setAvailableLibraries(libArray);
       setSelectedLibraries(libArray);
       setSelectedBookKeys(allBookKeys); 
-    } catch (error) { console.error("Search failed", error); } 
+    } catch (error) {
+      console.error("Search failed", error);
+      alert(error instanceof Error ? error.message : "검색 중 오류가 발생했습니다.");
+      setResults([]);
+    } 
     finally { setLoading(false); }
   };
 
@@ -243,6 +253,11 @@ function SearchContent({
       return { ...term, books: filteredBooks };
     }).filter(term => term.books.length > 0);
   }, [results, selectedLibraries, selectedStatuses, selectedBookKeys]);
+
+  const totalFilteredBookCount = useMemo(() => {
+    if (!filteredResults) return 0;
+    return filteredResults.reduce((sum, term) => sum + term.books.length, 0);
+  }, [filteredResults]);
 
   const stats = useMemo(() => {
     if (!results || results.length === 0) return null;
@@ -378,7 +393,7 @@ function SearchContent({
           </section>
           
           <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3 mb-6">
-            <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Books Found ({filteredResults.length})</span>
+            <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Results by Search Term ({filteredResults.length}개 검색어 · {totalFilteredBookCount}권)</span>
             <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-1.5 text-[13px] font-bold px-3 py-1.5 rounded-full transition-colors ${showFilters ? 'bg-[#1D1D1F] text-white' : 'bg-[#F5F5F7] text-[#86868B] hover:text-[#1D1D1F]'}`}>
               <Filter size={14} /> 상세 옵션 {showFilters ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
             </button>
@@ -440,55 +455,66 @@ function SearchContent({
           {filteredResults.length > 0 ? (
             <div className="space-y-10">
               {filteredResults.map((term, tIdx) => (
-                <React.Fragment key={`term-${tIdx}`}>
-                  {term.books.map((book, bIdx) => (
-                    <article key={`book-${tIdx}-${bIdx}`} className="group bg-white rounded-[24px] p-6 md:p-10 shadow-[0_2px_12px_rgb(0,0,0,0.03)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.06)] transition-all duration-500 flex flex-col md:flex-row gap-6 md:gap-12 relative overflow-hidden border border-[#E5E5EA]/50">
-                      <div className="shrink-0 mx-auto md:mx-0 relative z-10">
-                        <div className="w-[120px] md:w-[160px] aspect-[2/3] rounded-[4px] overflow-hidden relative shadow-[10px_10px_20px_rgba(0,0,0,0.1),-5px_0_10px_rgba(0,0,0,0.02)] transition-transform duration-500 group-hover:-translate-y-2 group-hover:scale-[1.02] bg-[#F5F5F7]">
-                          {/* ✨ [수정됨] 실제 이미지 URL이 있으면 렌더링하고 오류시 아이콘으로 대체되도록 처리 */}
-                          {book.metadata.imageUrl ? (
-                            <img 
-                              src={book.metadata.imageUrl} 
-                              alt={book.metadata.title} 
-                              className="w-full h-full object-cover" 
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
-                                const fallbackIcon = document.createElement('div');
-                                fallbackIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D2D2D7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
-                                e.currentTarget.parentElement?.appendChild(fallbackIcon);
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-10 h-10 text-[#D2D2D7]" /></div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-black/[0.02] via-transparent to-white/[0.1] mix-blend-overlay"></div><div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-r from-white/40 to-transparent"></div>
-                        </div>
+                <section key={`term-${tIdx}`} className="bg-white rounded-[30px] border border-[#E5E5EA] shadow-[0_2px_14px_rgb(0,0,0,0.03)] overflow-hidden">
+                  <div className="px-6 md:px-10 py-5 md:py-6 border-b border-[#F5F5F7] bg-[linear-gradient(135deg,#FFFFFF_0%,#FAFAFB_100%)]">
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Search Term {tIdx + 1}</p>
+                        <h2 className="text-[22px] md:text-[28px] font-bold tracking-tight text-[#1D1D1F] mt-1">“{term.searchTerm}”</h2>
                       </div>
-                      <div className="flex-1 flex flex-col relative z-10">
-                        <header className="mb-6">
-                          <div className="text-[11px] font-bold text-[#86868B] mb-2 bg-[#F5F5F7] inline-block px-2 py-1 rounded">검색어: {term.searchTerm}</div>
-                          <h2 className="text-[24px] md:text-[32px] font-bold tracking-tight text-[#1D1D1F] leading-[1.25] mb-2 line-clamp-2">{book.metadata.title}</h2>
-                          <p className="text-[15px] text-[#86868B] font-medium tracking-tight">{book.metadata.author} <span className="mx-2 text-[#D2D2D7]">|</span> {book.metadata.publisher} <span className="mx-2 text-[#D2D2D7]">|</span> {book.metadata.pubYear}</p>
-                          <p className="text-[11px] text-[#A1A1A6] font-mono mt-2">ISBN {book.metadata.isbn}</p>
-                        </header>
-                        <div className="mt-auto border-t border-[#F5F5F7] pt-6">
-                          <h3 className="text-[11px] font-bold text-[#86868B] uppercase tracking-[0.15em] mb-4">Availability</h3>
-                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8">
-                            {book.libraries.map((lib, lIdx) => (
-                              <li key={lIdx} className="flex items-center justify-between p-2 -mx-2 rounded-lg hover:bg-[#F5F5F7] transition-colors cursor-default">
-                                <span className="text-[14px] font-semibold text-[#1D1D1F]">{lib.libraryName}</span>
-                                <div className="flex items-center gap-2">
-                                  {lib.isAvailable ? (<><span className="text-[12px] font-bold text-[#34C759]">가능</span><div className="w-2 h-2 rounded-full bg-[#34C759] shadow-[0_0_8px_rgba(52,199,89,0.4)]"></div></>) : (<><span className="text-[12px] font-bold text-[#FF3B30]">대출중</span><div className="w-2 h-2 rounded-full bg-[#FF3B30]"></div></>)}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
+                      <span className="inline-flex items-center self-start sm:self-auto bg-[#1D1D1F] text-white text-[12px] font-bold px-3 py-1 rounded-full">{term.books.length}권 결과</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 md:p-6 space-y-5">
+                    {term.books.map((book, bIdx) => (
+                      <article key={`book-${tIdx}-${bIdx}`} className="group bg-white rounded-[24px] p-6 md:p-8 shadow-[0_2px_12px_rgb(0,0,0,0.03)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.06)] transition-all duration-500 flex flex-col md:flex-row gap-6 md:gap-12 relative overflow-hidden border border-[#E5E5EA]/70">
+                        <div className="shrink-0 mx-auto md:mx-0 relative z-10">
+                          <div className="w-[120px] md:w-[160px] aspect-[2/3] rounded-[4px] overflow-hidden relative shadow-[10px_10px_20px_rgba(0,0,0,0.1),-5px_0_10px_rgba(0,0,0,0.02)] transition-transform duration-500 group-hover:-translate-y-2 group-hover:scale-[1.02] bg-[#F5F5F7]">
+                            {/* ✨ [수정됨] 실제 이미지 URL이 있으면 렌더링하고 오류시 아이콘으로 대체되도록 처리 */}
+                            {book.metadata.imageUrl ? (
+                              <img 
+                                src={book.metadata.imageUrl} 
+                                alt={book.metadata.title} 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center');
+                                  const fallbackIcon = document.createElement('div');
+                                  fallbackIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D2D2D7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+                                  e.currentTarget.parentElement?.appendChild(fallbackIcon);
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-10 h-10 text-[#D2D2D7]" /></div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-black/[0.02] via-transparent to-white/[0.1] mix-blend-overlay"></div><div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-r from-white/40 to-transparent"></div>
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  ))}
-                </React.Fragment>
+                        <div className="flex-1 flex flex-col relative z-10">
+                          <header className="mb-6">
+                            <h3 className="text-[24px] md:text-[32px] font-bold tracking-tight text-[#1D1D1F] leading-[1.25] mb-2 line-clamp-2">{book.metadata.title}</h3>
+                            <p className="text-[15px] text-[#86868B] font-medium tracking-tight">{book.metadata.author} <span className="mx-2 text-[#D2D2D7]">|</span> {book.metadata.publisher} <span className="mx-2 text-[#D2D2D7]">|</span> {book.metadata.pubYear}</p>
+                            <p className="text-[11px] text-[#A1A1A6] font-mono mt-2">ISBN {book.metadata.isbn}</p>
+                          </header>
+                          <div className="mt-auto border-t border-[#F5F5F7] pt-6">
+                            <h4 className="text-[11px] font-bold text-[#86868B] uppercase tracking-[0.15em] mb-4">Availability</h4>
+                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8">
+                              {book.libraries.map((lib, lIdx) => (
+                                <li key={lIdx} className="flex items-center justify-between p-2 -mx-2 rounded-lg hover:bg-[#F5F5F7] transition-colors cursor-default">
+                                  <span className="text-[14px] font-semibold text-[#1D1D1F]">{lib.libraryName}</span>
+                                  <div className="flex items-center gap-2">
+                                    {lib.isAvailable ? (<><span className="text-[12px] font-bold text-[#34C759]">가능</span><div className="w-2 h-2 rounded-full bg-[#34C759] shadow-[0_0_8px_rgba(52,199,89,0.4)]"></div></>) : (<><span className="text-[12px] font-bold text-[#FF3B30]">대출중</span><div className="w-2 h-2 rounded-full bg-[#FF3B30]"></div></>)}
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           ) : (
