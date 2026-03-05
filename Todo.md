@@ -622,3 +622,44 @@
 - 결과:
   - `/test2`에서 ISBN 입력 기반 실시간 테스트 가능
   - `npm run build` 성공 (기존 `<img>` ESLint 경고 1건 유지)
+
+### 2026-03-05 - 정보마루 0건 시 알라딘 ISBN fallback 강화
+- 상태: DONE
+- 목표:
+  - 정보마루 제목 검색 실패 시 알라딘 `ItemSearch`(`mallType=BOOK`) 상위 3개 ISBN13으로 재조회
+  - 정보마루 제목 검색은 성공했지만 지역 소장 결과가 0건인 경우에도 알라딘 ISBN fallback 재시도
+- 작업 항목:
+  1. DONE: `/api/search`에 `fetchAladinBookIsbnCandidatesByTitle` 추가
+  2. DONE: `mallType === BOOK` + ISBN13 정규화 + 상위 3개 제한 적용
+  3. DONE: phase1(검색어 검증 실패) fallback 적용
+  4. DONE: phase2(소장 0건) fallback 재시도 적용
+  5. DONE: 빌드 검증 및 샘플 조회 검증
+- 검증 결과:
+  - `district=11230` + `해리포터 불의 잔 3` -> `results: []`
+  - `district=11070` + `해리포터 불의 잔 3` -> `isbn 9791193790489` 포함 결과 확인
+  - 결론: 동일 검색어라도 자치구(`dtl_region`) 필터에 따라 결과가 달라짐
+
+### 2026-03-06 - 도서 이미지 하이브리드 소스 적용
+- 상태: DONE
+- 목표:
+  - 도서 이미지 소스를 정보마루 우선 + 알라딘 fallback 방식으로 전환
+- 작업 항목:
+  1. DONE: `/api/search` metadata.imageUrl 설정을 `pickBookImageUrl(bookInfo) || aladin cover`로 변경
+  2. DONE: 병합 갱신 로직에서도 동일한 우선순위 적용
+  3. DONE: 빌드 검증
+- 결과:
+  - 정보마루 이미지가 없는 경우 알라딘 표지 이미지로 대체됨
+  - `npm run build` 성공 (기존 `<img>` ESLint 경고 1건 유지)
+
+### 2026-03-06 - /test, /test2 테스트 엔드포인트 비활성화
+- 상태: DONE
+- 목표:
+  - 운영에서 `/test`, `/test2` 경로 및 관련 테스트 API가 동작하지 않도록 비활성화
+- 작업 항목:
+  1. DONE: `/test`, `/test2` 페이지를 홈(`/`) 리다이렉트로 전환
+  2. DONE: `/api/test/aladin-search`, `/api/test/aladin-lookup`를 404 응답으로 전환
+  3. DONE: 빌드 검증
+- 결과:
+  - 테스트 페이지 직접 접근 시 홈으로 이동
+  - 테스트 API 호출 시 404 + 비활성화 메시지 응답
+  - `npm run build` 성공 (기존 `<img>` 경고 1건 유지)
