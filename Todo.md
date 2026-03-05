@@ -323,6 +323,18 @@
   - `Type error: Parameter 'item' implicitly has an 'any' type` 해소
   - `npm run build` 성공
   - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - Docker CI Prisma Client 초기화 오류 수정
+- 상태: DONE
+- 목표:
+  - Docker 빌드 환경에서 `@prisma/client did not initialize yet` 오류 제거
+- 작업 항목:
+  1. DONE: `Dockerfile` build 단계에 `npx prisma generate` 추가
+  2. DONE: 로컬 빌드 재검증
+- 결과:
+  - Docker 빌드 시 Prisma Client 생성 단계가 명시적으로 수행되도록 보완
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
 - 결과:
   - 소개 페이지 본문 하단 로고 중복 제거 완료
   - 로딩 시 스켈레톤이 검색창 아래부터 표시되어 가독성 개선
