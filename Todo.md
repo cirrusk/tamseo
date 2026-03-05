@@ -410,6 +410,21 @@
   - `ALADIN_TTB_KEY` 환경변수 지원(미설정 시 제공된 기본 키 fallback)
   - `npm run build` 성공
   - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - ISBN 기반 알라딘 cover 이미지 우선 표기
+- 상태: DONE
+- 목표:
+  - 도서 이미지를 정보나루 이미지 대신 알라딘 `cover` 값으로 우선 표기
+- 작업 항목:
+  1. DONE: `/api/search`에 알라딘 조회 결과를 `{ title, coverUrl }` 형태로 확장
+  2. DONE: ISBN별 캐시 기반으로 이미지 조회 재사용
+  3. DONE: `metadata.imageUrl`을 `aladin cover` 우선, 실패 시 기존 이미지 fallback 처리
+  4. DONE: 빌드 검증
+- 결과:
+  - 화면 표지는 알라딘 `cover` URL을 우선 사용
+  - 알라딘 실패 시 기존 정보나루 이미지 로직으로 자동 대체
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
 - 결과:
   - 소개 페이지 본문 하단 로고 중복 제거 완료
   - 로딩 시 스켈레톤이 검색창 아래부터 표시되어 가독성 개선
