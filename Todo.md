@@ -395,6 +395,21 @@
   - 예: `해리포터와 불의 잔` -> `해리포터와 불의 잔 4-4` 형태로 표시 가능
   - `npm run build` 성공
   - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - ISBN 기반 알라딘 title 우선 표기
+- 상태: DONE
+- 목표:
+  - 정보나루 ISBN으로 알라딘 `ItemLookUp`을 조회해 화면 title을 알라딘 기준으로 노출
+- 작업 항목:
+  1. DONE: `/api/search`에 알라딘 조회 유틸(`fetchAladinTitleByIsbn`) 추가
+  2. DONE: ISBN별 캐시(Map) 적용으로 중복 호출 최소화
+  3. DONE: metadata.title을 알라딘 title 우선, 실패 시 기존 title fallback 처리
+  4. DONE: 빌드 검증
+- 결과:
+  - 동일 ISBN 기준으로 알라딘 title을 우선 표시
+  - `ALADIN_TTB_KEY` 환경변수 지원(미설정 시 제공된 기본 키 fallback)
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
 - 결과:
   - 소개 페이지 본문 하단 로고 중복 제거 완료
   - 로딩 시 스켈레톤이 검색창 아래부터 표시되어 가독성 개선

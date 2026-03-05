@@ -11,6 +11,9 @@ import {
 
 const API_BASE_URL = "http://data4library.kr/api";
 const API_KEY = process.env.LIBRARY_API_KEY?.trim();
+const ALADIN_API_BASE_URL = "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx";
+const ALADIN_TTB_KEY =
+  process.env.ALADIN_TTB_KEY?.trim() || "ttbhjopa91932001";
 const DAILY_RATE_LIMIT = 50;
 const MAX_QUERY_COUNT = 5;
 const MAX_QUERY_LENGTH = 120;
@@ -145,6 +148,33 @@ const buildDisplayTitle = (bookInfo: any): string => {
   return `${rawTitle} ${vol}`.replace(/\s+/g, " ").trim();
 };
 
+const fetchAladinTitleByIsbn = async (isbn13: string): Promise<string | null> => {
+  if (!ALADIN_TTB_KEY) return null;
+
+  const params = new URLSearchParams({
+    ttbkey: ALADIN_TTB_KEY,
+    itemIdType: "ISBN13",
+    ItemId: isbn13,
+    output: "js",
+    Version: "20131101",
+  });
+
+  try {
+    const response = await fetch(`${ALADIN_API_BASE_URL}?${params.toString()}`, {
+      signal: AbortSignal.timeout(2500),
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const firstItem = Array.isArray(data?.item) ? data.item[0] : null;
+    const title = typeof firstItem?.title === "string" ? firstItem.title.trim() : "";
+    return title || null;
+  } catch {
+    return null;
+  }
+};
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
@@ -224,6 +254,7 @@ export async function GET(request: Request) {
 
     const results = [];
     const searchStartTime = Date.now();
+    const aladinTitleCache = new Map<string, string | null>();
 
     for (const title of bookTitles) {
       if (Date.now() - searchStartTime > 9000) break;
@@ -307,9 +338,16 @@ export async function GET(request: Request) {
         for (const bookInfo of foundBooks) {
           const isbn = bookInfo.isbn13 || bookInfo.isbn;
           if (!isbn) continue;
+          const isbnKey = String(isbn);
+
+          let aladinTitle = aladinTitleCache.get(isbnKey);
+          if (aladinTitle === undefined) {
+            aladinTitle = await fetchAladinTitleByIsbn(isbnKey);
+            aladinTitleCache.set(isbnKey, aladinTitle);
+          }
 
           const libRes = await fetch(
-            `${API_BASE_URL}/libSrchByBook?authKey=${API_KEY}&isbn=${isbn}&region=11&dtl_region=${districtCode}&pageSize=5&format=json`,
+            `${API_BASE_URL}/libSrchByBook?authKey=${API_KEY}&isbn=${isbnKey}&region=11&dtl_region=${districtCode}&pageSize=5&format=json`,
             { signal: AbortSignal.timeout(6000) }
           );
           const libData = await libRes.json();
@@ -336,13 +374,12 @@ export async function GET(request: Request) {
 
           if (librariesWithStatus.length === 0) continue;
 
-          const isbnKey = String(isbn);
           const existing = processedBooksByIsbn.get(isbnKey);
 
           if (!existing) {
             processedBooksByIsbn.set(isbnKey, {
               metadata: {
-                title: buildDisplayTitle(bookInfo),
+                title: aladinTitle || buildDisplayTitle(bookInfo),
                 author: bookInfo.authors,
                 publisher: bookInfo.publisher,
                 pubYear: bookInfo.publication_year,
@@ -371,6 +408,9 @@ export async function GET(request: Request) {
 
           if (!existing.metadata.imageUrl) {
             existing.metadata.imageUrl = pickBookImageUrl(bookInfo);
+          }
+          if (!existing.metadata.title && aladinTitle) {
+            existing.metadata.title = aladinTitle;
           }
         }
 
