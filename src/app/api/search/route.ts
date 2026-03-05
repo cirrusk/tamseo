@@ -12,6 +12,7 @@ import {
 const API_BASE_URL = "http://data4library.kr/api";
 const API_KEY = process.env.LIBRARY_API_KEY?.trim();
 const ALADIN_API_BASE_URL = "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx";
+const ALADIN_ITEM_SEARCH_BASE_URL = "http://www.aladin.co.kr/ttb/api/ItemSearch.aspx";
 const ALADIN_TTB_KEY =
   process.env.ALADIN_TTB_KEY?.trim() || "ttbhjopa91932001";
 const DAILY_RATE_LIMIT = 50;
@@ -216,10 +217,65 @@ const normalizeAladinCoverUrl = (value: string | null | undefined): string | nul
   return trimmed;
 };
 
+const normalizeIsbn13 = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 13) return null;
+  return digits;
+};
+
+const fetchAladinBookIsbnCandidatesByTitle = async (title: string): Promise<string[]> => {
+  if (!ALADIN_TTB_KEY) return [];
+
+  const params = new URLSearchParams({
+    ttbkey: ALADIN_TTB_KEY,
+    Query: title,
+    QueryType: "Title",
+    MaxResults: "10",
+    start: "1",
+    SearchTarget: "Book",
+    output: "js",
+    Version: "20131101",
+  });
+
+  try {
+    const response = await fetch(`${ALADIN_ITEM_SEARCH_BASE_URL}?${params.toString()}`, {
+      signal: AbortSignal.timeout(3000),
+      cache: "no-store",
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const items = Array.isArray(data?.item) ? data.item : [];
+
+    const candidates: string[] = items
+      .filter((item: any) => item?.mallType === "BOOK")
+      .map((item: any) => normalizeIsbn13(item?.isbn13))
+      .filter((isbn: string | null): isbn is string => Boolean(isbn));
+
+    return Array.from(new Set(candidates)).slice(0, 3);
+  } catch {
+    return [];
+  }
+};
+
 const fetchAladinItemByIsbn = async (
   isbn13: string
-): Promise<{ title: string | null; coverUrl: string | null }> => {
-  if (!ALADIN_TTB_KEY) return { title: null, coverUrl: null };
+): Promise<{
+  title: string | null;
+  author: string | null;
+  publisher: string | null;
+  pubYear: string | null;
+  coverUrl: string | null;
+}> => {
+  if (!ALADIN_TTB_KEY) {
+    return {
+      title: null,
+      author: null,
+      publisher: null,
+      pubYear: null,
+      coverUrl: null,
+    };
+  }
 
   const params = new URLSearchParams({
     ttbkey: ALADIN_TTB_KEY,
@@ -234,15 +290,40 @@ const fetchAladinItemByIsbn = async (
       signal: AbortSignal.timeout(2500),
       cache: "no-store",
     });
-    if (!response.ok) return { title: null, coverUrl: null };
+    if (!response.ok) {
+      return {
+        title: null,
+        author: null,
+        publisher: null,
+        pubYear: null,
+        coverUrl: null,
+      };
+    }
 
     const data = await response.json();
     const firstItem = Array.isArray(data?.item) ? data.item[0] : null;
     const title = typeof firstItem?.title === "string" ? firstItem.title.trim() : "";
+    const author = typeof firstItem?.author === "string" ? firstItem.author.trim() : "";
+    const publisher = typeof firstItem?.publisher === "string" ? firstItem.publisher.trim() : "";
+    const pubDate = typeof firstItem?.pubDate === "string" ? firstItem.pubDate.trim() : "";
+    const pubYearMatch = pubDate.match(/^(\d{4})/);
+    const pubYear = pubYearMatch ? pubYearMatch[1] : "";
     const coverUrl = normalizeAladinCoverUrl(firstItem?.cover);
-    return { title: title || null, coverUrl };
+    return {
+      title: title || null,
+      author: author || null,
+      publisher: publisher || null,
+      pubYear: pubYear || null,
+      coverUrl,
+    };
   } catch {
-    return { title: null, coverUrl: null };
+    return {
+      title: null,
+      author: null,
+      publisher: null,
+      pubYear: null,
+      coverUrl: null,
+    };
   }
 };
 
@@ -327,7 +408,17 @@ export async function GET(request: Request) {
     const invalidTerms: string[] = [];
     const searchStartTime = Date.now();
     const precheckBooksByTerm = new Map<string, any[]>();
-    const aladinItemCache = new Map<string, { title: string | null; coverUrl: string | null }>();
+    const fallbackIsbnByTerm = new Map<string, string[]>();
+    const aladinItemCache = new Map<
+      string,
+      {
+        title: string | null;
+        author: string | null;
+        publisher: string | null;
+        pubYear: string | null;
+        coverUrl: string | null;
+      }
+    >();
     const searchableTerms = bookTitles.filter((term) => {
       if (term.length < MIN_QUERY_LENGTH) {
         invalidTerms.push(term);
@@ -347,7 +438,13 @@ export async function GET(request: Request) {
 
       const foundBooks = await searchBooksByStrategies(API_KEY, title);
       if (!foundBooks) {
-        invalidTerms.push(title);
+        const fallbackIsbnCandidates = await fetchAladinBookIsbnCandidatesByTitle(title);
+        if (fallbackIsbnCandidates.length === 0) {
+          invalidTerms.push(title);
+          continue;
+        }
+        fallbackIsbnByTerm.set(title, fallbackIsbnCandidates);
+        precheckBooksByTerm.set(title, []);
         continue;
       }
       precheckBooksByTerm.set(title, foundBooks);
@@ -367,7 +464,8 @@ export async function GET(request: Request) {
     for (const title of searchableTerms) {
       try {
         const foundBooks = precheckBooksByTerm.get(title);
-        if (!foundBooks || foundBooks.length === 0) continue;
+        const fallbackIsbnCandidates = fallbackIsbnByTerm.get(title) ?? [];
+        if ((!foundBooks || foundBooks.length === 0) && fallbackIsbnCandidates.length === 0) continue;
 
         const processedBooksByIsbn = new Map<
           string,
@@ -384,10 +482,12 @@ export async function GET(request: Request) {
           }
         >();
 
-        for (const bookInfo of foundBooks) {
-          const isbn = bookInfo.isbn13 || bookInfo.isbn;
-          if (!isbn) continue;
+        const attemptedIsbn = new Set<string>();
+        const processSourceItem = async (isbn: string, bookInfo: any) => {
+          if (!isbn) return;
           const isbnKey = String(isbn);
+          if (attemptedIsbn.has(isbnKey)) return;
+          attemptedIsbn.add(isbnKey);
 
           let aladinItem = aladinItemCache.get(isbnKey);
           if (!aladinItem) {
@@ -407,7 +507,7 @@ export async function GET(request: Request) {
               const libCode = item.lib.libCode;
               try {
                 const existRes = await fetch(
-                  `${API_BASE_URL}/bookExist?authKey=${API_KEY}&libCode=${libCode}&isbn13=${isbn}&format=json`,
+                  `${API_BASE_URL}/bookExist?authKey=${API_KEY}&libCode=${libCode}&isbn13=${isbnKey}&format=json`,
                   { signal: AbortSignal.timeout(2000) }
                 );
                 const existData = await existRes.json();
@@ -421,23 +521,22 @@ export async function GET(request: Request) {
             })
           );
 
-          if (librariesWithStatus.length === 0) continue;
+          if (librariesWithStatus.length === 0) return;
 
           const existing = processedBooksByIsbn.get(isbnKey);
-
           if (!existing) {
             processedBooksByIsbn.set(isbnKey, {
               metadata: {
-                title: aladinItem.title || buildDisplayTitle(bookInfo),
-                author: bookInfo.authors,
-                publisher: bookInfo.publisher,
-                pubYear: bookInfo.publication_year,
+                title: aladinItem.title || (bookInfo ? buildDisplayTitle(bookInfo) : title),
+                author: bookInfo?.authors || aladinItem.author || "정보 없음",
+                publisher: bookInfo?.publisher || aladinItem.publisher || "정보 없음",
+                pubYear: bookInfo?.publication_year || aladinItem.pubYear || "정보 없음",
                 isbn: isbnKey,
-                imageUrl: pickBookImageUrl(bookInfo),
+                imageUrl: pickBookImageUrl(bookInfo) || aladinItem.coverUrl || undefined,
               },
               libraries: librariesWithStatus,
             });
-            continue;
+            return;
           }
 
           const mergedLibraries = new Map(
@@ -449,17 +548,34 @@ export async function GET(request: Request) {
           }
 
           existing.libraries = Array.from(mergedLibraries.entries()).map(
-            ([libraryName, isAvailable]) => ({
-              libraryName,
-              isAvailable,
-            })
+            ([libraryName, isAvailable]) => ({ libraryName, isAvailable })
           );
 
           if (!existing.metadata.imageUrl) {
-            existing.metadata.imageUrl = pickBookImageUrl(bookInfo);
+            existing.metadata.imageUrl = pickBookImageUrl(bookInfo) || aladinItem.coverUrl || undefined;
           }
           if (!existing.metadata.title && aladinItem.title) {
             existing.metadata.title = aladinItem.title;
+          }
+        };
+
+        const sourceItems =
+          foundBooks && foundBooks.length > 0
+            ? foundBooks.map((bookInfo) => ({ isbn: bookInfo.isbn13 || bookInfo.isbn, bookInfo }))
+            : fallbackIsbnCandidates.map((isbn13) => ({ isbn: isbn13, bookInfo: null as any }));
+
+        for (const sourceItem of sourceItems) {
+          await processSourceItem(sourceItem.isbn, sourceItem.bookInfo);
+        }
+
+        // 정보마루 제목 검색이 성공했지만 지역 소장 결과가 0건이면, 알라딘 ISBN fallback을 한 번 더 시도한다.
+        if (processedBooksByIsbn.size === 0 && foundBooks && foundBooks.length > 0) {
+          const extraFallbackIsbnCandidates =
+            fallbackIsbnCandidates.length > 0
+              ? fallbackIsbnCandidates
+              : await fetchAladinBookIsbnCandidatesByTitle(title);
+          for (const isbn13 of extraFallbackIsbnCandidates) {
+            await processSourceItem(isbn13, null);
           }
         }
 

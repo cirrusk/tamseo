@@ -200,7 +200,15 @@ const DistrictWheelPicker = ({
 
 
 // ✨ [수정됨] 지역 도서관 모달 (DB API 연동 및 로딩 상태 추가)
-const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const LibraryListModal = ({
+  isOpen,
+  onClose,
+  initialDistrictName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  initialDistrictName: string;
+}) => {
   const [libraries, setLibraries] = useState<LibraryInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDistrictName, setSelectedDistrictName] = useState<string>("All");
@@ -228,6 +236,11 @@ const LibraryListModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
         .finally(() => setTimeout(() => setLoading(false), 800));
     }
   }, [isOpen, libraries.length]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedDistrictName(initialDistrictName || "All");
+  }, [isOpen, initialDistrictName]);
 
   if (!isOpen) return null;
   
@@ -432,13 +445,23 @@ function SearchContent({
       const successfulResults = data.results.filter(
         (item) => Array.isArray(item.books) && item.books.length > 0
       );
+      const successfulTerms = new Set(
+        successfulResults
+          .map((item) => item.searchTerm.trim())
+          .filter((term) => term.length > 0)
+      );
       const emptyTermsFromResults = data.results
         .filter((item) => !Array.isArray(item.books) || item.books.length === 0)
         .map((item) => item.searchTerm.trim())
         .filter((term) => term.length > 0);
-      const mergedEmptyTerms = Array.from(
-        new Set([...(data.invalidTerms ?? []), ...emptyTermsFromResults])
+      const knownEmptyTerms = Array.from(
+        new Set([...(data.invalidTerms ?? []), ...emptyTermsFromResults].map((term) => term.trim()).filter((term) => term.length > 0))
       );
+      const knownEmptyTermSet = new Set(knownEmptyTerms);
+      const unresolvedNoHoldingTerms = Array.from(
+        new Set(terms.map((term) => term.trim()).filter((term) => term.length > 0))
+      ).filter((term) => !successfulTerms.has(term) && !knownEmptyTermSet.has(term));
+      const mergedEmptyTerms = Array.from(new Set([...knownEmptyTerms, ...unresolvedNoHoldingTerms]));
 
       setResults(successfulResults);
       setEmptyTerms(mergedEmptyTerms);
@@ -757,8 +780,8 @@ function SearchContent({
                 <div className="w-12 h-12 bg-[#F5F5F7] rounded-full flex items-center justify-center mx-auto mb-4">
                   <Search size={20} className="text-[#86868B]" />
                 </div>
-                <h3 className="text-[20px] sm:text-[22px] font-bold text-[#1D1D1F] tracking-tight mb-2">아쉽게도 다음 지식은 찾지 못했어요</h3>
-                <p className="text-[14px] text-[#86868B] font-medium">검색어를 수정하시거나 띄어쓰기를 확인해 보세요.</p>
+                <h3 className="text-[20px] sm:text-[22px] font-bold text-[#1D1D1F] tracking-tight mb-2">아쉽게도 지식을 찾지 못했어요</h3>
+                <p className="text-[14px] text-[#86868B] font-medium">입력하신 도서를 소장하고 있는 도서관를 찾을 수 없습니다.</p>
               </div>
               <div className="flex flex-wrap justify-center gap-3">
                 {emptyTerms.map((term, idx) => (
@@ -779,7 +802,7 @@ function SearchContent({
           </div>
           <h3 className="text-[22px] md:text-[26px] font-bold text-[#1D1D1F] tracking-tight mb-3">아쉽게도 지식을 찾지 못했어요</h3>
           <p className="text-[15px] text-[#86868B] font-medium max-w-md mx-auto leading-relaxed">
-            입력하신 모든 검색어에 대한 결과를 찾을 수 없습니다.<br />검색어를 수정하시거나 띄어쓰기를 확인해 보세요.
+            입력하신 도서를 소장하고 있는 도서관를 찾을 수 없습니다.
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-10">
             {emptyTerms.map((term, idx) => (
@@ -791,7 +814,11 @@ function SearchContent({
           </div>
         </div>
       )}
-      <LibraryListModal isOpen={showLibraryList} onClose={() => setShowLibraryList(false)} />
+      <LibraryListModal
+        isOpen={showLibraryList}
+        onClose={() => setShowLibraryList(false)}
+        initialDistrictName={DISTRICT_NAMES[districtCode] || "All"}
+      />
     </main>
   );
 }
