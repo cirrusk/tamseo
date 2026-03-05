@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
-import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, XCircle, Info, Filter, X, Loader2, ChevronDown, ChevronUp, Hammer } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, Info, X, Loader2, ChevronDown, Hammer } from 'lucide-react';
 import { TamseoLogo } from '@/components/SharedUI';
 
 // =========================================================================
@@ -301,19 +301,13 @@ function SearchContent({
   const [searched, setSearched] = useState<boolean>(false);
   
   const [isFocused, setIsFocused] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [showLibraryList, setShowLibraryList] = useState(false); 
   const textareaRef = useRef<HTMLTextAreaElement>(null); 
 
   const [expandedStats, setExpandedStats] = useState({ owned: false, available: false });
-  const [availableLibraries, setAvailableLibraries] = useState<string[]>([]);
-  const [selectedLibraries, setSelectedLibraries] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['available', 'unavailable']);
-  const [selectedBookKeys, setSelectedBookKeys] = useState<Set<string>>(new Set()); 
   const formRef = useRef<HTMLFormElement>(null);
 
   const SAFE_INPUT_REGEX = /^[가-힣a-zA-Z0-9\s]+$/;
-  const getBookKey = (tIdx: number, bIdx: number) => `book-${tIdx}-${bIdx}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -400,24 +394,11 @@ function SearchContent({
     if (terms.length > 5) { alert("최대 5권까지만 검색됩니다."); terms = terms.slice(0, 5); }
 
     setLoading(true); setSearched(true); setResults(null);
-    setSelectedLibraries([]); setSelectedBookKeys(new Set()); setShowFilters(false);
     setExpandedStats({ owned: false, available: false });
 
     try {
       const data = await fetchLibraryData(districtCode, terms);
       setResults(data);
-      const libs = new Set<string>();
-      const allBookKeys = new Set<string>(); 
-      data.forEach((item, tIdx) => {
-        item.books.forEach((book, bIdx) => {
-          allBookKeys.add(getBookKey(tIdx, bIdx));
-          book.libraries.forEach(lib => libs.add(lib.libraryName));
-        });
-      });
-      const libArray = Array.from(libs).sort();
-      setAvailableLibraries(libArray);
-      setSelectedLibraries(libArray);
-      setSelectedBookKeys(allBookKeys); 
     } catch (error) {
       console.error("Search failed", error);
       alert(error instanceof Error ? error.message : "검색 중 오류가 발생했습니다.");
@@ -433,21 +414,7 @@ function SearchContent({
     }
   };
 
-  const filteredResults = useMemo(() => {
-    if (!results) return null;
-    return results.map((term, tIdx) => {
-      const filteredBooks = term.books.filter((_, bIdx) => selectedBookKeys.has(getBookKey(tIdx, bIdx)))
-      .map(book => {
-        const filteredLibs = book.libraries.filter(lib => {
-          const nameMatch = selectedLibraries.includes(lib.libraryName);
-          const statusMatch = (lib.isAvailable && selectedStatuses.includes('available')) || (!lib.isAvailable && selectedStatuses.includes('unavailable'));
-          return nameMatch && statusMatch;
-        });
-        return { ...book, libraries: filteredLibs };
-      }).filter(book => book.libraries.length > 0);
-      return { ...term, books: filteredBooks };
-    }).filter(term => term.books.length > 0);
-  }, [results, selectedLibraries, selectedStatuses, selectedBookKeys]);
+  const filteredResults = useMemo(() => results, [results]);
 
   const totalFilteredBookCount = useMemo(() => {
     if (!filteredResults) return 0;
@@ -481,25 +448,6 @@ function SearchContent({
     });
     return { totalTermsCount, maxOwnedCount, bestOwnedLibs, maxAvailableCount, bestAvailableLibs };
   }, [results]);
-
-  const toggleLibraryFilter = (libName: string) => { setSelectedLibraries(prev => prev.includes(libName) ? prev.filter(l => l !== libName) : [...prev, libName]); };
-  const toggleAllLibraries = () => { if (selectedLibraries.length === availableLibraries.length) setSelectedLibraries([]); else setSelectedLibraries(availableLibraries); };
-  const toggleStatusFilter = (status: string) => { setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]); };
-  const toggleTermGroup = (tIdx: number) => {
-    if (!results) return;
-    const term = results[tIdx];
-    const childKeys = term.books.map((_, bIdx) => getBookKey(tIdx, bIdx));
-    const allSelected = childKeys.every(k => selectedBookKeys.has(k));
-    const newSet = new Set(selectedBookKeys);
-    if (allSelected) childKeys.forEach(k => newSet.delete(k)); else childKeys.forEach(k => newSet.add(k));
-    setSelectedBookKeys(newSet);
-  };
-  const toggleBookItem = (tIdx: number, bIdx: number) => {
-    const key = getBookKey(tIdx, bIdx);
-    const newSet = new Set(selectedBookKeys);
-    if (newSet.has(key)) newSet.delete(key); else newSet.add(key);
-    setSelectedBookKeys(newSet);
-  };
 
   const ResultsSkeleton = () => (
     <div className="space-y-8 animate-pulse">
@@ -594,64 +542,8 @@ function SearchContent({
           </section>
           
           <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3 mb-6">
-            <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Results by Search Term ({filteredResults.length}개 검색어 · {totalFilteredBookCount}권)</span>
-            <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-1.5 text-[13px] font-bold px-3 py-1.5 rounded-full transition-colors ${showFilters ? 'bg-[#1D1D1F] text-white' : 'bg-[#F5F5F7] text-[#86868B] hover:text-[#1D1D1F]'}`}>
-              <Filter size={14} /> 상세 옵션 {showFilters ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-            </button>
+            <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Results ({filteredResults.length}개 검색어 · {totalFilteredBookCount}권)</span>
           </div>
-
-          {showFilters && (
-            <div className="bg-white rounded-[24px] p-6 shadow-[0_2px_12px_rgb(0,0,0,0.03)] border border-[#E5E5EA] mb-8 grid grid-cols-1 md:grid-cols-3 gap-8 animate-in slide-in-from-top-4 fade-in duration-300">
-              <div className="flex flex-col">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="text-[13px] font-bold text-[#1D1D1F]">도서 선택</h4>
-                  <button type="button" onClick={() => { const all = new Set<string>(); results?.forEach((t, ti) => t.books.forEach((_, bi) => all.add(getBookKey(ti, bi)))); setSelectedBookKeys(all); }} className="text-[11px] font-bold text-[#86868B] hover:text-[#1D1D1F]">전체선택</button>
-                </div>
-                <div className="space-y-4 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
-                  {results?.map((term, tIdx) => (
-                    <div key={tIdx}>
-                      <label className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={term.books.every((_, bIdx) => selectedBookKeys.has(getBookKey(tIdx, bIdx)))} onChange={() => toggleTermGroup(tIdx)} className="w-4 h-4 accent-[#1D1D1F] cursor-pointer" />
-                        <span className="text-[14px] font-bold text-[#1D1D1F] group-hover:text-[#0066CC] transition-colors line-clamp-1">{tIdx + 1}. {term.searchTerm}</span>
-                      </label>
-                      <div className="ml-6 mt-2 space-y-2 border-l-2 border-[#F5F5F7] pl-3">
-                        {term.books.map((book, bIdx) => (
-                          <label key={bIdx} className="flex items-center gap-2 cursor-pointer group">
-                            <input type="checkbox" checked={selectedBookKeys.has(getBookKey(tIdx, bIdx))} onChange={() => toggleBookItem(tIdx, bIdx)} className="w-3.5 h-3.5 accent-[#1D1D1F] cursor-pointer" />
-                            <span className="text-[13px] font-medium text-[#86868B] group-hover:text-[#1D1D1F] transition-colors line-clamp-1">{book.metadata.title}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col md:border-l border-[#F5F5F7] md:pl-8">
-                <div className="flex justify-between items-center mb-4"><h4 className="text-[13px] font-bold text-[#1D1D1F]">도서관 선택</h4><button type="button" onClick={toggleAllLibraries} className="text-[11px] font-bold text-[#86868B] hover:text-[#1D1D1F]">반전</button></div>
-                <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
-                  {availableLibraries.map(lib => (
-                    <label key={lib} className="flex items-center gap-2 cursor-pointer group">
-                      <input type="checkbox" checked={selectedLibraries.includes(lib)} onChange={() => toggleLibraryFilter(lib)} className="w-4 h-4 accent-[#1D1D1F] cursor-pointer" />
-                      <span className="text-[13px] font-medium text-[#86868B] group-hover:text-[#1D1D1F] transition-colors truncate">{lib}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col md:border-l border-[#F5F5F7] md:pl-8">
-                <h4 className="text-[13px] font-bold text-[#1D1D1F] mb-4">대출 상태</h4>
-                <div className="flex flex-col gap-3">
-                  <label className="flex items-center gap-3 cursor-pointer group bg-[#F5F5F7] p-3 rounded-xl hover:bg-[#E5E5EA] transition-colors">
-                    <input type="checkbox" checked={selectedStatuses.includes('available')} onChange={() => toggleStatusFilter('available')} className="w-4 h-4 accent-[#34C759] cursor-pointer" />
-                    <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#1D1D1F]"><CheckCircle2 size={16} className="text-[#34C759]" /> 대출 가능</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group bg-[#F5F5F7] p-3 rounded-xl hover:bg-[#E5E5EA] transition-colors">
-                    <input type="checkbox" checked={selectedStatuses.includes('unavailable')} onChange={() => toggleStatusFilter('unavailable')} className="w-4 h-4 accent-[#FF3B30] cursor-pointer" />
-                    <span className="flex items-center gap-1.5 text-[14px] font-bold text-[#1D1D1F]"><XCircle size={16} className="text-[#FF3B30]" /> 대출 중</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
 
           {filteredResults.length > 0 ? (
             <div className="space-y-16">
