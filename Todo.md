@@ -311,6 +311,18 @@
   - 위치 판별이 불가하거나 서울 외 권역이면 기본값은 강남구로 설정
   - `npm run build` 성공
   - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - CI 타입 에러(`implicit any`) 수정
+- 상태: DONE
+- 목표:
+  - GitHub Actions Docker 빌드 실패 원인인 관리자 API 타입 에러를 제거
+- 작업 항목:
+  1. DONE: `src/app/api/admin/search-logs/route.ts`의 `map` 콜백 파라미터 타입 명시
+  2. DONE: 로컬 `npm run build`로 재검증
+- 결과:
+  - `Type error: Parameter 'item' implicitly has an 'any' type` 해소
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
 - 결과:
   - 소개 페이지 본문 하단 로고 중복 제거 완료
   - 로딩 시 스켈레톤이 검색창 아래부터 표시되어 가독성 개선

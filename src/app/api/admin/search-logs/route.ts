@@ -125,11 +125,11 @@ export async function GET(request: Request) {
       totalPages,
     },
     summary: {
-      topDevices: topDevices.map((item) => ({
+      topDevices: topDevices.map((item: { deviceType: string; _count: { _all: number } }) => ({
         deviceType: item.deviceType,
         count: item._count._all,
       })),
-      topQueries: topQueries.map((item) => ({
+      topQueries: topQueries.map((item: { normalized: string; _count: { _all: number } }) => ({
         query: item.normalized,
         count: item._count._all,
       })),
