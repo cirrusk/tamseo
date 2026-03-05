@@ -272,7 +272,8 @@ function SearchContent({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [districtCode, setDistrictCode] = useState<string>("11070"); 
+  const [districtCode, setDistrictCode] = useState<string>("11230"); 
+  const [districtReady, setDistrictReady] = useState(false);
   const [bookInput, setBookInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [results, setResults] = useState<SearchResultItem[] | null>(null);
@@ -294,15 +295,44 @@ function SearchContent({
   const getBookKey = (tIdx: number, bIdx: number) => `book-${tIdx}-${bIdx}`;
 
   useEffect(() => {
-    const storedDistrict = localStorage.getItem('tamseo-selected-district');
-    if (storedDistrict && DISTRICTS.includes(storedDistrict)) {
-      setDistrictCode(storedDistrict);
-    }
+    let cancelled = false;
+
+    const initializeDistrict = async () => {
+      const storedDistrict = localStorage.getItem('tamseo-selected-district');
+      if (storedDistrict && DISTRICTS.includes(storedDistrict)) {
+        if (!cancelled) {
+          setDistrictCode(storedDistrict);
+          setDistrictReady(true);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/location/default-district', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('지역 기본값 조회 실패');
+        const data = await res.json();
+        const nextCode = typeof data?.districtCode === 'string' ? data.districtCode : '11230';
+        if (!cancelled && DISTRICTS.includes(nextCode)) setDistrictCode(nextCode);
+      } catch {
+        if (!cancelled) setDistrictCode('11230');
+      } finally {
+        if (!cancelled) setDistrictReady(true);
+      }
+    };
+
+    void initializeDistrict();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (!districtReady) return;
     localStorage.setItem('tamseo-selected-district', districtCode);
-  }, [districtCode]);
+  }, [districtCode, districtReady]);
 
   useEffect(() => {
     const booksQuery = searchParams.get('books');
