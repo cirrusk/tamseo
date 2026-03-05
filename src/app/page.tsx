@@ -657,7 +657,7 @@ function SearchContent({
             <div className="space-y-16">
               {filteredResults.map((term, tIdx) => (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                  <header className="sticky top-16 z-30 flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 bg-[#F5F5F7]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#F5F5F7]/80 group">
+                  <header className="flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 group">
                     <h2 className="text-[20px] sm:text-[24px] font-bold text-[#1D1D1F] tracking-tight shrink-0">
                       {term.searchTerm}
                     </h2>
