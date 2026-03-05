@@ -509,33 +509,104 @@ function SearchContent({
         <div className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-[1000ms] ease-out">
           <section className="mb-16">
             <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3 mb-6">
-              <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Insights</span>
+              <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">
+                Smart Insights
+              </span>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="bg-white rounded-[24px] p-6 sm:p-8 shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-[#E5E5EA] flex flex-col hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                <div className="flex items-center gap-2 mb-6"><div className="w-8 h-8 rounded-full bg-[#F5F5F7] flex items-center justify-center shrink-0"><BookOpen size={16} className="text-[#86868B]" /></div><span className="text-[13px] font-bold text-[#86868B]">가장 많은 종류를 보유한 곳</span></div>
+              <div className="group bg-white rounded-[28px] p-7 sm:p-9 shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#E5E5EA]/80 flex flex-col transition-all duration-500 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] hover:border-[#D2D2D7]">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-[#F5F5F7] flex items-center justify-center shrink-0 transition-colors group-hover:bg-[#1D1D1F]">
+                    <BookOpen size={18} className="text-[#86868B] group-hover:text-white transition-colors" />
+                  </div>
+                  <span className="text-[14px] font-bold text-[#515154] tracking-tight">가장 많은 이야기를 품은 곳</span>
+                </div>
+
                 <div className="flex-1 flex flex-col justify-center">
-                  <p className="text-[14px] text-[#86868B] font-medium mb-3 leading-relaxed">검색하신 <span className="font-bold text-[#1D1D1F]">{stats.totalTermsCount}종류</span> 중 <span className="text-[#1D1D1F] font-bold text-[16px]">{stats.maxOwnedCount}종류</span>의 도서를 보유하고 있습니다.</p>
                   {stats.bestOwnedLibs.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {stats.bestOwnedLibs.slice(0, expandedStats.owned ? undefined : 2).map((lib, i) => (<div key={i} className="bg-[#F5F5F7] border border-[#E5E5EA] px-3.5 py-1.5 rounded-lg text-[14px] font-bold text-[#1D1D1F] shadow-sm">{lib}</div>))}
-                      {stats.bestOwnedLibs.length > 2 && (<button onClick={() => setExpandedStats(p => ({...p, owned: !p.owned}))} className="text-[13px] text-[#0066CC] font-semibold px-2 py-1 hover:bg-[#0066CC]/10 rounded-md transition-colors ml-1">{expandedStats.owned ? '접기' : `+${stats.bestOwnedLibs.length - 2}곳 더보기`}</button>)}
-                    </div>
-                  ) : (<div className="text-[24px] font-bold text-[#1D1D1F]">-</div>)}
+                    <>
+                      <h3 className="text-[28px] sm:text-[34px] font-extrabold text-[#1D1D1F] tracking-tight leading-[1.25] mb-3 break-keep">
+                        {stats.bestOwnedLibs[0]}
+                      </h3>
+                      <div className="flex items-center gap-2 mb-6">
+                        <span className="bg-[#1D1D1F] text-white px-3 py-1 rounded-lg text-[14px] font-bold tracking-tight shadow-sm">
+                          {stats.maxOwnedCount}종
+                        </span>
+                        <span className="text-[15px] font-medium text-[#86868B] tracking-tight">모두 만나볼 수 있어요</span>
+                      </div>
+
+                      {stats.bestOwnedLibs.length > 1 && (
+                        <div className="mt-auto border-t border-[#E5E5EA]/80 pt-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[12px] font-bold text-[#86868B]">같은 조건의 다른 도서관</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {stats.bestOwnedLibs.slice(1, expandedStats.owned ? undefined : 3).map((lib, i) => (
+                              <div key={i} className="px-3 py-1.5 bg-[#F5F5F7] rounded-lg text-[13px] font-bold text-[#515154] hover:bg-[#E5E5EA] transition-colors cursor-default">
+                                {lib}
+                              </div>
+                            ))}
+                            {stats.bestOwnedLibs.length > 4 && (
+                              <button onClick={() => setExpandedStats(p => ({ ...p, owned: !p.owned }))} className="px-3 py-1.5 text-[13px] font-bold text-[#0066CC] hover:bg-[#E8F2FF] rounded-lg transition-colors">
+                                {expandedStats.owned ? '접기' : `+${stats.bestOwnedLibs.length - 4}곳 더보기`}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-[24px] font-bold text-[#D2D2D7]">-</div>
+                  )}
                 </div>
               </div>
 
-              <div className="bg-[#1D1D1F] rounded-[24px] p-6 sm:p-8 shadow-[0_8px_20px_rgb(0,0,0,0.12)] flex flex-col relative overflow-hidden group/card transition-all duration-300">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#34C759] opacity-10 rounded-full blur-2xl transition-opacity duration-500"></div>
-                <div className="flex items-center gap-2 mb-6 relative z-10"><div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0"><CheckCircle2 size={16} className="text-[#34C759]" /></div><span className="text-[13px] font-bold text-white/70">가장 많이 즉시 대출 가능한 곳</span></div>
+              <div className="group bg-[#1D1D1F] rounded-[28px] p-7 sm:p-9 shadow-[0_12px_40px_rgba(0,0,0,0.12)] flex flex-col relative overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-[#34C759] opacity-10 rounded-full blur-[50px] transition-opacity duration-700 group-hover:opacity-20 pointer-events-none"></div>
+                <div className="flex items-center gap-3 mb-6 relative z-10">
+                  <div className="w-10 h-10 rounded-full bg-white/10 border border-white/5 flex items-center justify-center shrink-0">
+                    <CheckCircle2 size={18} className="text-[#34C759]" />
+                  </div>
+                  <span className="text-[14px] font-bold text-white/80 tracking-tight">지금 바로 만날 수 있는 곳</span>
+                </div>
+
                 <div className="flex-1 flex flex-col justify-center relative z-10">
-                  <p className="text-[14px] text-white/70 font-medium mb-3 leading-relaxed">지금 바로 <span className="text-white font-bold text-[16px]">{stats.maxAvailableCount}종류</span>의 검색어 도서를 대출할 수 있습니다.</p>
                   {stats.bestAvailableLibs.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {stats.bestAvailableLibs.slice(0, expandedStats.available ? undefined : 2).map((lib, i) => (<div key={i} className="bg-white/10 border border-white/5 px-3.5 py-1.5 rounded-lg text-[14px] font-bold text-white shadow-sm">{lib}</div>))}
-                      {stats.bestAvailableLibs.length > 2 && (<button onClick={() => setExpandedStats(p => ({...p, available: !p.available}))} className="text-[13px] text-white/70 font-semibold px-2 py-1 hover:bg-white/10 rounded-md transition-colors ml-1">{expandedStats.available ? '접기' : `+${stats.bestAvailableLibs.length - 2}곳 더보기`}</button>)}
-                    </div>
-                  ) : (<div className="text-[24px] font-bold text-white">-</div>)}
+                    <>
+                      <h3 className="text-[28px] sm:text-[34px] font-extrabold text-white tracking-tight leading-[1.25] mb-3 break-keep">
+                        {stats.bestAvailableLibs[0]}
+                      </h3>
+                      <div className="flex items-center gap-2 mb-6">
+                        <span className="bg-[#34C759] text-white px-3 py-1 rounded-lg text-[14px] font-bold tracking-tight shadow-[0_0_12px_rgba(52,199,89,0.4)]">
+                          {stats.maxAvailableCount}종
+                        </span>
+                        <span className="text-[15px] font-medium text-white/60 tracking-tight">즉시 대출 가능해요</span>
+                      </div>
+
+                      {stats.bestAvailableLibs.length > 1 && (
+                        <div className="mt-auto border-t border-white/10 pt-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[12px] font-bold text-white/40">같은 조건의 다른 도서관</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {stats.bestAvailableLibs.slice(1, expandedStats.available ? undefined : 3).map((lib, i) => (
+                              <div key={i} className="px-3 py-1.5 bg-white/10 rounded-lg text-[13px] font-bold text-white/80 hover:bg-white/20 transition-colors backdrop-blur-md cursor-default">
+                                {lib}
+                              </div>
+                            ))}
+                            {stats.bestAvailableLibs.length > 4 && (
+                              <button onClick={() => setExpandedStats(p => ({ ...p, available: !p.available }))} className="px-3 py-1.5 text-[13px] font-bold text-white/90 hover:bg-white/20 rounded-lg transition-colors border border-transparent hover:border-white/10">
+                                {expandedStats.available ? '접기' : `+${stats.bestAvailableLibs.length - 4}곳 더보기`}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-[24px] font-bold text-white/30">-</div>
+                  )}
                 </div>
               </div>
             </div>
