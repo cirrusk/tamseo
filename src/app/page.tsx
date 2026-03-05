@@ -65,6 +65,7 @@ const DistrictWheelPicker = ({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollEndTimerRef = useRef<number | null>(null);
 
   const options = useMemo(
     () => DISTRICTS.map((code) => ({ code, name: DISTRICT_NAMES[code] })),
@@ -74,8 +75,13 @@ const DistrictWheelPicker = ({
     0,
     options.findIndex((option) => option.code === value)
   );
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const wheelHeight = DISTRICT_WHEEL_ITEM_HEIGHT * DISTRICT_WHEEL_VISIBLE_ROWS;
   const spacerHeight = DISTRICT_WHEEL_ITEM_HEIGHT * Math.floor(DISTRICT_WHEEL_VISIBLE_ROWS / 2);
+
+  useEffect(() => {
+    setActiveIndex(selectedIndex);
+  }, [selectedIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,12 +103,27 @@ const DistrictWheelPicker = ({
     });
   }, [open, selectedIndex]);
 
+  useEffect(
+    () => () => {
+      if (scrollEndTimerRef.current) window.clearTimeout(scrollEndTimerRef.current);
+    },
+    []
+  );
+
   const handleWheelScroll = () => {
     if (!scrollRef.current) return;
     const nextIndex = Math.round(scrollRef.current.scrollTop / DISTRICT_WHEEL_ITEM_HEIGHT);
     const safeIndex = Math.max(0, Math.min(options.length - 1, nextIndex));
-    const nextCode = options[safeIndex]?.code;
-    if (nextCode && nextCode !== value) onChange(nextCode);
+    setActiveIndex(safeIndex);
+
+    if (scrollEndTimerRef.current) window.clearTimeout(scrollEndTimerRef.current);
+    scrollEndTimerRef.current = window.setTimeout(() => {
+      if (!scrollRef.current) return;
+      const targetTop = safeIndex * DISTRICT_WHEEL_ITEM_HEIGHT;
+      scrollRef.current.scrollTo({ top: targetTop, behavior: "smooth" });
+      const nextCode = options[safeIndex]?.code;
+      if (nextCode && nextCode !== value) onChange(nextCode);
+    }, 90);
   };
 
   return (
@@ -130,7 +151,7 @@ const DistrictWheelPicker = ({
             >
               <div style={{ height: `${spacerHeight}px` }} />
               {options.map((option, index) => {
-                const distance = index - selectedIndex;
+                const distance = index - activeIndex;
                 const absDistance = Math.abs(distance);
                 const scale = Math.max(0.8, 1 - absDistance * 0.1);
                 const opacity = Math.max(0.35, 1 - absDistance * 0.22);

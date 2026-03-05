@@ -63,6 +63,34 @@ const DISTRICT_NAME_TO_CODE: Record<string, string> = {
   "중랑구": "11070",
 };
 
+const DISTRICT_ALIASES: Array<{ code: string; aliases: string[] }> = [
+  { code: "11230", aliases: ["강남구", "gangnam", "gangnam-gu"] },
+  { code: "11250", aliases: ["강동구", "gangdong", "gangdong-gu"] },
+  { code: "11090", aliases: ["강북구", "gangbuk", "gangbuk-gu"] },
+  { code: "11160", aliases: ["강서구", "gangseo", "gangseo-gu"] },
+  { code: "11210", aliases: ["관악구", "gwanak", "gwanak-gu"] },
+  { code: "11050", aliases: ["광진구", "gwangjin", "gwangjin-gu"] },
+  { code: "11170", aliases: ["구로구", "guro", "guro-gu"] },
+  { code: "11180", aliases: ["금천구", "geumcheon", "geumcheon-gu"] },
+  { code: "11110", aliases: ["노원구", "nowon", "nowon-gu"] },
+  { code: "11100", aliases: ["도봉구", "dobong", "dobong-gu"] },
+  { code: "11060", aliases: ["동대문구", "dongdaemun", "dongdaemun-gu"] },
+  { code: "11200", aliases: ["동작구", "dongjak", "dongjak-gu"] },
+  { code: "11140", aliases: ["마포구", "mapo", "mapo-gu"] },
+  { code: "11130", aliases: ["서대문구", "seodaemun", "seodaemun-gu"] },
+  { code: "11220", aliases: ["서초구", "seocho", "seocho-gu"] },
+  { code: "11040", aliases: ["성동구", "seongdong", "seongdong-gu"] },
+  { code: "11080", aliases: ["성북구", "seongbuk", "seongbuk-gu"] },
+  { code: "11240", aliases: ["송파구", "songpa", "songpa-gu"] },
+  { code: "11150", aliases: ["양천구", "yangcheon", "yangcheon-gu"] },
+  { code: "11190", aliases: ["영등포구", "yeongdeungpo", "yeongdeungpo-gu"] },
+  { code: "11030", aliases: ["용산구", "yongsan", "yongsan-gu"] },
+  { code: "11120", aliases: ["은평구", "eunpyeong", "eunpyeong-gu"] },
+  { code: "11010", aliases: ["종로구", "jongno", "jongno-gu"] },
+  { code: "11020", aliases: ["중구", "jung-gu", "jung gu", "junggu"] },
+  { code: "11070", aliases: ["중랑구", "jungnang", "jungnang-gu"] },
+];
+
 const toRad = (value: number): number => (value * Math.PI) / 180;
 const haversineDistanceKm = (
   lat1: number,
@@ -95,8 +123,13 @@ const findNearestDistrictCode = (lat: number, lon: number): string => {
 const getClientIp = (headers: Headers): string | null => {
   const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
-    const first = forwardedFor.split(",")[0]?.trim();
-    if (first) return first.replace("::ffff:", "");
+    const candidates = forwardedFor
+      .split(",")
+      .map((part) => part.trim().replace("::ffff:", "").replace(/:\d+$/, ""))
+      .filter(Boolean);
+    const publicCandidate = candidates.find((candidate) => !isPrivateIp(candidate));
+    if (publicCandidate) return publicCandidate;
+    if (candidates[0]) return candidates[0];
   }
   const realIp = headers.get("x-real-ip")?.trim();
   if (realIp) return realIp.replace("::ffff:", "");
@@ -139,24 +172,87 @@ const inferDistrictFromHeaders = (headers: Headers): string | null => {
   return null;
 };
 
+const normalizeText = (value: string): string => value.toLowerCase().replace(/[\s_]/g, "");
+
+const inferDistrictFromText = (value: string): string | null => {
+  if (!value) return null;
+  const normalized = normalizeText(value);
+  for (const item of DISTRICT_ALIASES) {
+    if (item.aliases.some((alias) => normalized.includes(normalizeText(alias)))) {
+      return item.code;
+    }
+  }
+  return null;
+};
+
 const fetchIpGeo = async (
   ip: string
-): Promise<{ countryCode?: string; latitude?: number; longitude?: number } | null> => {
-  try {
-    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(1500),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return {
-      countryCode: typeof data?.country_code === "string" ? data.country_code.toUpperCase() : undefined,
-      latitude: typeof data?.latitude === "number" ? data.latitude : undefined,
-      longitude: typeof data?.longitude === "number" ? data.longitude : undefined,
-    };
-  } catch {
-    return null;
+): Promise<{
+  countryCode?: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  region?: string;
+} | null> => {
+  const providers = [
+    async () => {
+      const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(2200),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        countryCode: typeof data?.country_code === "string" ? data.country_code.toUpperCase() : undefined,
+        latitude: typeof data?.latitude === "number" ? data.latitude : undefined,
+        longitude: typeof data?.longitude === "number" ? data.longitude : undefined,
+        city: typeof data?.city === "string" ? data.city : undefined,
+        region: typeof data?.region === "string" ? data.region : undefined,
+      };
+    },
+    async () => {
+      const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(2200),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        countryCode: typeof data?.country_code === "string" ? data.country_code.toUpperCase() : undefined,
+        latitude: typeof data?.latitude === "number" ? data.latitude : undefined,
+        longitude: typeof data?.longitude === "number" ? data.longitude : undefined,
+        city: typeof data?.city === "string" ? data.city : undefined,
+        region: typeof data?.region === "string" ? data.region : undefined,
+      };
+    },
+    async () => {
+      const res = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(2200),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const [lat, lon] =
+        typeof data?.loc === "string" ? data.loc.split(",").map((v: string) => Number(v.trim())) : [undefined, undefined];
+      return {
+        countryCode: typeof data?.country === "string" ? data.country.toUpperCase() : undefined,
+        latitude: typeof lat === "number" && !Number.isNaN(lat) ? lat : undefined,
+        longitude: typeof lon === "number" && !Number.isNaN(lon) ? lon : undefined,
+        city: typeof data?.city === "string" ? data.city : undefined,
+        region: typeof data?.region === "string" ? data.region : undefined,
+      };
+    },
+  ];
+
+  for (const provider of providers) {
+    try {
+      const result = await provider();
+      if (result?.countryCode) return result;
+    } catch {
+      // try next provider
+    }
   }
+  return null;
 };
 
 export async function GET(request: Request) {
@@ -173,6 +269,11 @@ export async function GET(request: Request) {
   const geo = await fetchIpGeo(ip);
   if (!geo?.countryCode || geo.countryCode !== "KR") {
     return NextResponse.json({ districtCode: DEFAULT_DISTRICT_CODE });
+  }
+
+  const districtFromText = inferDistrictFromText(`${geo.region ?? ""} ${geo.city ?? ""}`);
+  if (districtFromText) {
+    return NextResponse.json({ districtCode: districtFromText });
   }
 
   if (typeof geo.latitude !== "number" || typeof geo.longitude !== "number") {
