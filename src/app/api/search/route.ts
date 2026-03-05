@@ -130,6 +130,21 @@ const pickBookImageUrl = (bookInfo: any): string | undefined => {
   return trimmed;
 };
 
+const buildDisplayTitle = (bookInfo: any): string => {
+  const rawTitle = typeof bookInfo?.bookname === "string" ? bookInfo.bookname.trim() : "";
+  const rawVol = bookInfo?.vol;
+
+  if (!rawTitle) return "";
+  if (rawVol === null || rawVol === undefined) return rawTitle;
+
+  const vol = String(rawVol).trim();
+  if (!vol) return rawTitle;
+
+  // Avoid appending duplicate volume text when title already includes it.
+  if (rawTitle.includes(vol)) return rawTitle;
+  return `${rawTitle} ${vol}`.replace(/\s+/g, " ").trim();
+};
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
@@ -327,7 +342,7 @@ export async function GET(request: Request) {
           if (!existing) {
             processedBooksByIsbn.set(isbnKey, {
               metadata: {
-                title: bookInfo.bookname,
+                title: buildDisplayTitle(bookInfo),
                 author: bookInfo.authors,
                 publisher: bookInfo.publisher,
                 pubYear: bookInfo.publication_year,
