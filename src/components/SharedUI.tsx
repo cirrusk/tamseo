@@ -68,14 +68,27 @@ export const Footer = () => (
 
 export const PrivacyBanner = () => {
   const [show, setShow] = useState(false);
+  const CONSENT_KEY = 'tamseo-privacy-consent';
+  const COOKIE_KEY = 'tamseo_privacy_consent';
 
   useEffect(() => {
-    const hasConsented = localStorage.getItem('tamseo-privacy-consent');
-    if (!hasConsented) setShow(true);
+    const localConsent = localStorage.getItem(CONSENT_KEY);
+    const cookieConsent = document.cookie
+      .split('; ')
+      .find((item) => item.startsWith(`${COOKIE_KEY}=`))
+      ?.split('=')[1];
+
+    if (localConsent === 'true' || cookieConsent === 'true') {
+      setShow(false);
+      return;
+    }
+
+    setShow(true);
   }, []);
 
   const handleConsent = () => {
-    localStorage.setItem('tamseo-privacy-consent', 'true');
+    localStorage.setItem(CONSENT_KEY, 'true');
+    document.cookie = `${COOKIE_KEY}=true; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
     setShow(false);
   };
 

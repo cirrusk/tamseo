@@ -29,7 +29,12 @@ export interface SearchEventLogInput {
 }
 
 export const normalizeQuery = (value: string): string =>
-  value.toLowerCase().replace(/\s+/g, " ").trim();
+  value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 
 export const getClientIp = (headers: Headers): string => {
   const forwardedFor = headers.get("x-forwarded-for");

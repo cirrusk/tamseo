@@ -12,6 +12,13 @@ import {
 const API_BASE_URL = "http://data4library.kr/api";
 const API_KEY = process.env.LIBRARY_API_KEY?.trim();
 const DAILY_RATE_LIMIT = 50;
+const MAX_QUERY_COUNT = 5;
+const MAX_QUERY_LENGTH = 120;
+const MAX_TOTAL_QUERY_LENGTH = 350;
+const MAX_USER_AGENT_LENGTH = 512;
+const SAFE_QUERY_REGEX = /^[\p{L}\p{N}\s\-_,.:;!?'"()[\]&/]+$/u;
+const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F]/g;
+const FALLBACK_RATE_LIMIT_BUCKET = new Map<string, { count: number; expiresAt: number }>();
 
 const DISTRICT_CODE_TO_NAME: Record<string, string> = {
   "11230": "강남구",
@@ -48,6 +55,62 @@ const normalizeImageUrl = (value: string): string => {
   return trimmed;
 };
 
+const sanitizeHeaderValue = (value: string, maxLength: number): string =>
+  value.replace(CONTROL_CHARS_REGEX, "").trim().slice(0, maxLength);
+
+const normalizeSearchQuery = (raw: string): string =>
+  raw.normalize("NFKC").replace(CONTROL_CHARS_REGEX, "").replace(/\s+/g, " ").trim();
+
+const parseAndValidateQueries = (queriesRaw: string): { queries: string[]; error?: string } => {
+  const queries = queriesRaw
+    .split(",")
+    .map(normalizeSearchQuery)
+    .filter((value) => value.length > 0);
+
+  if (queries.length === 0) {
+    return { queries: [], error: "적어도 한 권 이상의 책 제목을 입력해주세요." };
+  }
+
+  if (queries.length > MAX_QUERY_COUNT) {
+    return { queries: [], error: "최대 5권까지만 검색 가능합니다." };
+  }
+
+  const deduped = Array.from(new Set(queries));
+  const totalLength = deduped.reduce((sum, query) => sum + query.length, 0);
+  if (totalLength > MAX_TOTAL_QUERY_LENGTH) {
+    return { queries: [], error: "검색어 길이가 너무 깁니다. 입력을 줄여주세요." };
+  }
+
+  for (const query of deduped) {
+    if (query.length > MAX_QUERY_LENGTH) {
+      return { queries: [], error: `검색어는 ${MAX_QUERY_LENGTH}자 이하로 입력해주세요.` };
+    }
+    if (!SAFE_QUERY_REGEX.test(query)) {
+      return { queries: [], error: `보안 정책상 허용되지 않는 문자가 포함되어 있습니다: "${query}"` };
+    }
+  }
+
+  return { queries: deduped };
+};
+
+const incrementFallbackRateLimit = (ipHash: string): number => {
+  const now = Date.now();
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const key = `${dayKey}:${ipHash}`;
+  const tomorrowUtc = new Date(new Date().toISOString().slice(0, 10));
+  tomorrowUtc.setUTCDate(tomorrowUtc.getUTCDate() + 1);
+  const expiresAt = tomorrowUtc.getTime();
+
+  for (const [bucketKey, bucket] of Array.from(FALLBACK_RATE_LIMIT_BUCKET.entries())) {
+    if (bucket.expiresAt <= now) FALLBACK_RATE_LIMIT_BUCKET.delete(bucketKey);
+  }
+
+  const prev = FALLBACK_RATE_LIMIT_BUCKET.get(key);
+  const nextCount = (prev?.count ?? 0) + 1;
+  FALLBACK_RATE_LIMIT_BUCKET.set(key, { count: nextCount, expiresAt });
+  return nextCount;
+};
+
 const pickBookImageUrl = (bookInfo: any): string | undefined => {
   const candidate =
     bookInfo?.bookImageURL ||
@@ -71,8 +134,11 @@ export async function GET(request: Request) {
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
 
-  const ipRaw = getClientIp(request.headers);
-  const userAgentRaw = request.headers.get("user-agent") || "unknown";
+  const ipRaw = sanitizeHeaderValue(getClientIp(request.headers), 128) || "unknown";
+  const userAgentRaw = sanitizeHeaderValue(
+    request.headers.get("user-agent") || "unknown",
+    MAX_USER_AGENT_LENGTH
+  );
   const { deviceType, osName, browserName } = parseDeviceInfo(userAgentRaw);
 
   let statusCode = 200;
@@ -103,20 +169,24 @@ export async function GET(request: Request) {
       return NextResponse.json(responseBody, { status: statusCode });
     }
 
-    districtCode = district;
-    districtName = DISTRICT_CODE_TO_NAME[districtCode] || null;
-
-    bookTitles = queries
-      .split(",")
-      .map((title) => title.trim())
-      .filter((title) => title.length > 0);
-
-    if (bookTitles.length > 5) {
+    if (!Object.prototype.hasOwnProperty.call(DISTRICT_CODE_TO_NAME, district)) {
       statusCode = 400;
-      errorCode = "QUERY_LIMIT_EXCEEDED";
-      responseBody = { error: "최대 5권까지만 검색 가능합니다." };
+      errorCode = "INVALID_DISTRICT";
+      responseBody = { error: "유효하지 않은 자치구 코드입니다." };
       return NextResponse.json(responseBody, { status: statusCode });
     }
+
+    districtCode = district;
+    districtName = DISTRICT_CODE_TO_NAME[districtCode];
+
+    const { queries: validatedQueries, error: queryError } = parseAndValidateQueries(queries);
+    if (queryError) {
+      statusCode = 400;
+      errorCode = "INVALID_QUERY";
+      responseBody = { error: queryError };
+      return NextResponse.json(responseBody, { status: statusCode });
+    }
+    bookTitles = validatedQueries;
 
     try {
       const currentUsage = await incrementDailyRateLimit(hashIp(ipRaw));
@@ -128,6 +198,13 @@ export async function GET(request: Request) {
       }
     } catch (rateLimitError) {
       console.error("[RateLimit] PostgreSQL rate limit failed (ignored):", rateLimitError);
+      const currentUsage = incrementFallbackRateLimit(hashIp(ipRaw));
+      if (currentUsage > DAILY_RATE_LIMIT) {
+        statusCode = 429;
+        errorCode = "RATE_LIMIT_EXCEEDED_FALLBACK";
+        responseBody = { error: "일일 검색 허용량을 초과했습니다." };
+        return NextResponse.json(responseBody, { status: statusCode });
+      }
     }
 
     const results = [];
@@ -197,7 +274,20 @@ export async function GET(request: Request) {
           continue;
         }
 
-        const processedBooks = [];
+        const processedBooksByIsbn = new Map<
+          string,
+          {
+            metadata: {
+              title: string;
+              author: string;
+              publisher: string;
+              pubYear: string;
+              isbn: string;
+              imageUrl?: string;
+            };
+            libraries: { libraryName: string; isAvailable: boolean }[];
+          }
+        >();
 
         for (const bookInfo of foundBooks) {
           const isbn = bookInfo.isbn13 || bookInfo.isbn;
@@ -229,20 +319,47 @@ export async function GET(request: Request) {
             })
           );
 
-          if (librariesWithStatus.length > 0) {
-            processedBooks.push({
+          if (librariesWithStatus.length === 0) continue;
+
+          const isbnKey = String(isbn);
+          const existing = processedBooksByIsbn.get(isbnKey);
+
+          if (!existing) {
+            processedBooksByIsbn.set(isbnKey, {
               metadata: {
                 title: bookInfo.bookname,
                 author: bookInfo.authors,
                 publisher: bookInfo.publisher,
                 pubYear: bookInfo.publication_year,
-                isbn: bookInfo.isbn13 || bookInfo.isbn,
+                isbn: isbnKey,
                 imageUrl: pickBookImageUrl(bookInfo),
               },
               libraries: librariesWithStatus,
             });
+            continue;
+          }
+
+          const mergedLibraries = new Map(
+            existing.libraries.map((lib) => [lib.libraryName, lib.isAvailable] as const)
+          );
+          for (const lib of librariesWithStatus) {
+            const prev = mergedLibraries.get(lib.libraryName) ?? false;
+            mergedLibraries.set(lib.libraryName, prev || lib.isAvailable);
+          }
+
+          existing.libraries = Array.from(mergedLibraries.entries()).map(
+            ([libraryName, isAvailable]) => ({
+              libraryName,
+              isAvailable,
+            })
+          );
+
+          if (!existing.metadata.imageUrl) {
+            existing.metadata.imageUrl = pickBookImageUrl(bookInfo);
           }
         }
+
+        const processedBooks = Array.from(processedBooksByIsbn.values());
 
         if (processedBooks.length > 0) {
           results.push({
