@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
-import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, Info, X, Loader2, ChevronDown, Hammer } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, Info, X, Loader2, ChevronDown, Hammer, XCircle } from 'lucide-react';
 import { TamseoLogo } from '@/components/SharedUI';
 
 // =========================================================================
@@ -21,6 +21,7 @@ interface LibraryAvailability { libraryName: string; isAvailable: boolean; }
 interface GroupedBookResult { metadata: BookMetadata; libraries: LibraryAvailability[]; }
 interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
 interface LibraryInfo { district: string; name: string; address: string; }
+interface SearchApiResponse { results: SearchResultItem[]; invalidTerms?: string[]; }
 
 const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
 const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
@@ -31,7 +32,10 @@ const SEOUL_LIBRARIES: LibraryInfo[] = [
   { district: "강남구", name: "강남도서관", address: "서울 강남구 선릉로116길 45" },
 ];
 
-const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Promise<SearchResultItem[]> => {
+const fetchLibraryData = async (
+  districtCode: string,
+  bookTitles: string[]
+): Promise<SearchApiResponse> => {
   const params = new URLSearchParams({
     district: districtCode,
     queries: bookTitles.join(','),
@@ -42,14 +46,24 @@ const fetchLibraryData = async (districtCode: string, bookTitles: string[]): Pro
   });
   if (!response.ok) {
     let message = `검색 API 요청 실패 (${response.status})`;
+    let invalidTerms: string[] = [];
     try {
       const errorBody = await response.json();
       if (errorBody?.error) message = errorBody.error;
+      if (Array.isArray(errorBody?.invalidTerms)) invalidTerms = errorBody.invalidTerms;
     } catch {}
-    throw new Error(message);
+    const err = new Error(message) as Error & { invalidTerms?: string[] };
+    err.invalidTerms = invalidTerms;
+    throw err;
   }
   const data = await response.json();
-  return Array.isArray(data) ? data : [];
+  if (Array.isArray(data)) {
+    return { results: data, invalidTerms: [] };
+  }
+  return {
+    results: Array.isArray(data?.results) ? data.results : [],
+    invalidTerms: Array.isArray(data?.invalidTerms) ? data.invalidTerms : [],
+  };
 };
 
 const DISTRICT_WHEEL_ITEM_HEIGHT = 44;
@@ -297,6 +311,8 @@ function SearchContent({
   const [districtReady, setDistrictReady] = useState(false);
   const [bookInput, setBookInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [slowLoading, setSlowLoading] = useState<boolean>(false);
+  const [emptyTerms, setEmptyTerms] = useState<string[]>([]);
   const [results, setResults] = useState<SearchResultItem[] | null>(null);
   const [searched, setSearched] = useState<boolean>(false);
   
@@ -306,6 +322,7 @@ function SearchContent({
 
   const [expandedStats, setExpandedStats] = useState({ owned: false, available: false });
   const formRef = useRef<HTMLFormElement>(null);
+  const slowLoadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const SAFE_INPUT_REGEX = /^[가-힣a-zA-Z0-9\s]+$/;
 
@@ -383,8 +400,17 @@ function SearchContent({
     }
   }, [bookInput]);
 
+  useEffect(() => {
+    return () => {
+      if (slowLoadingTimerRef.current) {
+        clearTimeout(slowLoadingTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     let terms = bookInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
     
     if (terms.length === 0) { alert("적어도 한 권 이상의 책 제목을 입력해주세요."); return; }
@@ -393,18 +419,42 @@ function SearchContent({
     }
     if (terms.length > 5) { alert("최대 5권까지만 검색됩니다."); terms = terms.slice(0, 5); }
 
+    if (slowLoadingTimerRef.current) clearTimeout(slowLoadingTimerRef.current);
+    setSlowLoading(false);
+    slowLoadingTimerRef.current = setTimeout(() => setSlowLoading(true), 3000);
+
     setLoading(true); setSearched(true); setResults(null);
+    setEmptyTerms([]);
     setExpandedStats({ owned: false, available: false });
 
     try {
       const data = await fetchLibraryData(districtCode, terms);
-      setResults(data);
+      const successfulResults = data.results.filter(
+        (item) => Array.isArray(item.books) && item.books.length > 0
+      );
+      const emptyTermsFromResults = data.results
+        .filter((item) => !Array.isArray(item.books) || item.books.length === 0)
+        .map((item) => item.searchTerm.trim())
+        .filter((term) => term.length > 0);
+      const mergedEmptyTerms = Array.from(
+        new Set([...(data.invalidTerms ?? []), ...emptyTermsFromResults])
+      );
+
+      setResults(successfulResults);
+      setEmptyTerms(mergedEmptyTerms);
     } catch (error) {
       console.error("Search failed", error);
-      alert(error instanceof Error ? error.message : "검색 중 오류가 발생했습니다.");
+      const invalidTerms = (error as Error & { invalidTerms?: string[] }).invalidTerms ?? [];
+      setEmptyTerms(invalidTerms);
       setResults([]);
-    } 
-    finally { setLoading(false); }
+    } finally {
+      if (slowLoadingTimerRef.current) {
+        clearTimeout(slowLoadingTimerRef.current);
+        slowLoadingTimerRef.current = null;
+      }
+      setSlowLoading(false);
+      setLoading(false);
+    }
   };
 
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -414,19 +464,21 @@ function SearchContent({
     }
   };
 
-  const filteredResults = useMemo(() => results, [results]);
+  const filteredResults = useMemo(() => {
+    if (!results) return [];
+    return results.filter((item) => Array.isArray(item.books) && item.books.length > 0);
+  }, [results]);
 
   const totalFilteredBookCount = useMemo(() => {
-    if (!filteredResults) return 0;
     return filteredResults.reduce((sum, term) => sum + term.books.length, 0);
   }, [filteredResults]);
 
   const stats = useMemo(() => {
-    if (!results || results.length === 0) return null;
+    if (filteredResults.length === 0) return null;
     const libStats: Record<string, { ownedTerms: Set<string>, availableTerms: Set<string> }> = {};
-    const totalTermsCount = results.length;
+    const totalTermsCount = filteredResults.length;
 
-    results.forEach(termResult => {
+    filteredResults.forEach(termResult => {
       termResult.books.forEach(book => {
         book.libraries.forEach(lib => {
           if (!libStats[lib.libraryName]) { libStats[lib.libraryName] = { ownedTerms: new Set(), availableTerms: new Set() }; }
@@ -447,7 +499,7 @@ function SearchContent({
       if (s.availableTerms.size === maxAvailableCount && maxAvailableCount > 0) bestAvailableLibs.push(name); 
     });
     return { totalTermsCount, maxOwnedCount, bestOwnedLibs, maxAvailableCount, bestAvailableLibs };
-  }, [results]);
+  }, [filteredResults]);
 
   const ResultsSkeleton = () => (
     <div className="space-y-8 animate-pulse">
@@ -490,7 +542,15 @@ function SearchContent({
                   <span>+</span>
                   <span className="px-1.5 py-0.5 rounded-md bg-[#F5F5F7] border border-[#E5E5EA] text-[#6E6E73]">Enter</span>
                 </div>
-                <button type="submit" disabled={loading || !bookInput.trim()} className="bg-[#1D1D1F] text-white px-8 py-2.5 rounded-full text-[15px] font-bold hover:bg-black transition-transform active:scale-95 disabled:opacity-30 flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={loading || !bookInput.trim()}
+                  className={`px-8 py-2.5 rounded-full text-[15px] font-bold transition-transform active:scale-95 flex items-center gap-2 ${
+                    loading
+                      ? 'bg-[#E5E5EA] text-[#86868B] cursor-not-allowed'
+                      : 'bg-[#1D1D1F] text-white hover:bg-black'
+                  } ${!bookInput.trim() ? 'opacity-30 cursor-not-allowed' : ''}`}
+                >
                   {loading ? <><Loader2 className="animate-spin w-4 h-4"/> 탐색 중</> : '탐서 시작'}
                 </button>
               </div>
@@ -501,11 +561,21 @@ function SearchContent({
 
       {loading && (
         <div className="mt-16">
+          {slowLoading && (
+            <div className="mb-6 bg-white/80 backdrop-blur-md border border-[#E5E5EA] rounded-2xl px-5 py-4 animate-in fade-in slide-in-from-top-2 duration-500">
+              <p className="text-[14px] font-semibold text-[#1D1D1F] tracking-tight">
+                🔄 도서관 서버에서 데이터를 실시간 수집 중입니다...
+              </p>
+              <p className="text-[13px] text-[#86868B] mt-1 font-medium">
+                전체 도서관을 꼼꼼히 확인하고 있어요. 조금만 더 기다려주세요!
+              </p>
+            </div>
+          )}
           <ResultsSkeleton />
         </div>
       )}
 
-      {!loading && searched && filteredResults && stats && (
+      {!loading && searched && filteredResults.length > 0 && stats && (
         <div className="mt-16 animate-in fade-in slide-in-from-bottom-8 duration-[1000ms] ease-out">
           <section className="mb-16">
             <div className="flex items-center justify-between border-b border-[#E5E5EA] pb-3 mb-6">
@@ -616,8 +686,7 @@ function SearchContent({
             <span className="text-[13px] font-bold text-[#86868B] uppercase tracking-[0.15em]">Results ({filteredResults.length}개 검색어 · {totalFilteredBookCount}권)</span>
           </div>
 
-          {filteredResults.length > 0 ? (
-            <div className="space-y-16">
+          <div className="space-y-16">
               {filteredResults.map((term, tIdx) => (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                   <header className="flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 group">
@@ -680,19 +749,46 @@ function SearchContent({
                   </div>
                 </section>
               ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-[24px] py-20 px-6 text-center shadow-sm border border-[#E5E5EA]">
-              <Search size={48} strokeWidth={1} className="mx-auto text-[#D2D2D7] mb-4" />
-              <h3 className="text-[20px] font-bold text-[#1D1D1F] mb-2">조건에 맞는 결과가 없습니다</h3>
+          </div>
+
+          {emptyTerms.length > 0 && (
+            <div className="mt-16 pt-12 border-t border-[#E5E5EA]">
+              <div className="text-center mb-8">
+                <div className="w-12 h-12 bg-[#F5F5F7] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search size={20} className="text-[#86868B]" />
+                </div>
+                <h3 className="text-[20px] sm:text-[22px] font-bold text-[#1D1D1F] tracking-tight mb-2">아쉽게도 다음 지식은 찾지 못했어요</h3>
+                <p className="text-[14px] text-[#86868B] font-medium">검색어를 수정하시거나 띄어쓰기를 확인해 보세요.</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-3">
+                {emptyTerms.map((term, idx) => (
+                  <div key={`${term}-${idx}`} className="bg-white border border-[#E5E5EA] shadow-sm rounded-2xl px-5 py-3.5 flex items-center gap-3">
+                    <XCircle size={16} className="text-[#D2D2D7]" />
+                    <span className="text-[15px] font-bold text-[#515154] tracking-tight">{term}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
-      {!loading && searched && results && results.length === 0 && (
+      {!loading && searched && filteredResults.length === 0 && emptyTerms.length > 0 && (
         <div className="mt-20 bg-white rounded-[24px] py-20 px-6 text-center shadow-sm border border-[#E5E5EA] animate-in fade-in">
-          <Search size={48} strokeWidth={1} className="mx-auto text-[#D2D2D7] mb-4" />
-          <h3 className="text-[20px] font-bold text-[#1D1D1F] mb-2">지식을 찾지 못했습니다</h3>
+          <div className="w-16 h-16 bg-[#F5F5F7] rounded-full flex items-center justify-center mx-auto mb-6">
+            <Search size={28} className="text-[#86868B]" />
+          </div>
+          <h3 className="text-[22px] md:text-[26px] font-bold text-[#1D1D1F] tracking-tight mb-3">아쉽게도 지식을 찾지 못했어요</h3>
+          <p className="text-[15px] text-[#86868B] font-medium max-w-md mx-auto leading-relaxed">
+            입력하신 모든 검색어에 대한 결과를 찾을 수 없습니다.<br />검색어를 수정하시거나 띄어쓰기를 확인해 보세요.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 mt-10">
+            {emptyTerms.map((term, idx) => (
+              <div key={`${term}-${idx}`} className="bg-white border border-[#E5E5EA] shadow-sm rounded-2xl px-5 py-3.5 flex items-center gap-3">
+                <XCircle size={16} className="text-[#D2D2D7]" />
+                <span className="text-[15px] font-bold text-[#515154] tracking-tight">{term}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       <LibraryListModal isOpen={showLibraryList} onClose={() => setShowLibraryList(false)} />

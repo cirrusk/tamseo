@@ -16,10 +16,11 @@ const ALADIN_TTB_KEY =
   process.env.ALADIN_TTB_KEY?.trim() || "ttbhjopa91932001";
 const DAILY_RATE_LIMIT = 50;
 const MAX_QUERY_COUNT = 5;
+const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 120;
 const MAX_TOTAL_QUERY_LENGTH = 350;
 const MAX_USER_AGENT_LENGTH = 512;
-const SAFE_QUERY_REGEX = /^[\p{L}\p{N}\s\-_,.:;!?'"()[\]&/]+$/u;
+const SAFE_QUERY_REGEX = /^[가-힣a-zA-Z0-9\s]+$/;
 const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F]/g;
 const FALLBACK_RATE_LIMIT_BUCKET = new Map<string, { count: number; expiresAt: number }>();
 
@@ -131,6 +132,64 @@ const pickBookImageUrl = (bookInfo: any): string | undefined => {
   const trimmed = normalizeImageUrl(candidate);
   if (!trimmed) return undefined;
   return trimmed;
+};
+
+const searchBooksByStrategies = async (apiKey: string, rawTitle: string): Promise<any[] | null> => {
+  const cleanTitle = rawTitle.trim();
+  const noSpaceTitle = cleanTitle.replace(/\s+/g, "");
+  let foundBooks: any[] | null = null;
+
+  const searchBook = async (strategy: string, params: string) => {
+    const targetUrl = `${API_BASE_URL}/srchBooks?authKey=${apiKey}&pageNo=1&pageSize=5&format=json&exactMatch=N&${params}`;
+    try {
+      const response = await fetch(targetUrl, { signal: AbortSignal.timeout(6000) });
+      const rawText = await response.text();
+
+      console.log(`[Debug] ${strategy} Response: ${rawText.substring(0, 150)}...`);
+
+      if (rawText.trim().startsWith("<")) {
+        console.error(`[API Error] XML Response received: ${rawText.substring(0, 200)}`);
+        return null;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        console.error("[Error] JSON Parsing Failed");
+        return null;
+      }
+
+      if (data.response?.docs?.length > 0) {
+        return data.response.docs.slice(0, 3).map((item: any) => item.doc);
+      }
+    } catch (searchError) {
+      console.error(`[Search Error] Strategy ${strategy} failed:`, searchError);
+      return null;
+    }
+    return null;
+  };
+
+  if (!foundBooks) {
+    foundBooks = await searchBook("1.원본+대출순", `title=${encodeURIComponent(cleanTitle)}&sort=loan`);
+  }
+  if (!foundBooks && cleanTitle !== noSpaceTitle) {
+    foundBooks = await searchBook("2.공백제거+대출순", `title=${encodeURIComponent(noSpaceTitle)}&sort=loan`);
+  }
+  if (!foundBooks) {
+    foundBooks = await searchBook("3.키워드+대출순", `keyword=${encodeURIComponent(cleanTitle)}&sort=loan`);
+  }
+  if (!foundBooks) {
+    foundBooks = await searchBook("4.원본+정렬X", `title=${encodeURIComponent(cleanTitle)}`);
+  }
+  if (!foundBooks && cleanTitle !== noSpaceTitle) {
+    foundBooks = await searchBook("5.공백제거+정렬X", `title=${encodeURIComponent(noSpaceTitle)}`);
+  }
+  if (!foundBooks) {
+    foundBooks = await searchBook("6.키워드+정렬X", `keyword=${encodeURIComponent(cleanTitle)}`);
+  }
+
+  return foundBooks;
 };
 
 const buildDisplayTitle = (bookInfo: any): string => {
@@ -265,72 +324,50 @@ export async function GET(request: Request) {
     }
 
     const results = [];
+    const invalidTerms: string[] = [];
     const searchStartTime = Date.now();
+    const precheckBooksByTerm = new Map<string, any[]>();
     const aladinItemCache = new Map<string, { title: string | null; coverUrl: string | null }>();
+    const searchableTerms = bookTitles.filter((term) => {
+      if (term.length < MIN_QUERY_LENGTH) {
+        invalidTerms.push(term);
+        return false;
+      }
+      return true;
+    });
 
-    for (const title of bookTitles) {
-      if (Date.now() - searchStartTime > 9000) break;
+    // Phase 1: validate all terms are searchable before fetching detailed library status.
+    for (const title of searchableTerms) {
+      if (Date.now() - searchStartTime > 9000) {
+        statusCode = 408;
+        errorCode = "SEARCH_PRECHECK_TIMEOUT";
+        responseBody = { error: "검색어 검증 중 시간이 초과되었습니다. 다시 시도해주세요." };
+        return NextResponse.json(responseBody, { status: statusCode });
+      }
 
-      const cleanTitle = title.trim();
-      const noSpaceTitle = cleanTitle.replace(/\s+/g, "");
+      const foundBooks = await searchBooksByStrategies(API_KEY, title);
+      if (!foundBooks) {
+        invalidTerms.push(title);
+        continue;
+      }
+      precheckBooksByTerm.set(title, foundBooks);
+    }
 
+    if (precheckBooksByTerm.size === 0) {
+      statusCode = 400;
+      errorCode = "NO_VALID_SEARCH_TERM";
+      responseBody = {
+        error: `유효한 검색어가 없습니다. 검색어는 ${MIN_QUERY_LENGTH}자 이상 입력해주세요.`,
+        invalidTerms,
+      };
+      return NextResponse.json(responseBody, { status: statusCode });
+    }
+
+    // Phase 2: fetch library ownership/availability only after all terms pass precheck.
+    for (const title of searchableTerms) {
       try {
-        let foundBooks: any[] | null = null;
-
-        const searchBook = async (strategy: string, params: string) => {
-          const targetUrl = `${API_BASE_URL}/srchBooks?authKey=${API_KEY}&pageNo=1&pageSize=5&format=json&exactMatch=N&${params}`;
-          try {
-            const response = await fetch(targetUrl, { signal: AbortSignal.timeout(6000) });
-            const rawText = await response.text();
-
-            console.log(`[Debug] ${strategy} Response: ${rawText.substring(0, 150)}...`);
-
-            if (rawText.trim().startsWith("<")) {
-              console.error(`[API Error] XML Response received: ${rawText.substring(0, 200)}`);
-              return null;
-            }
-
-            let data;
-            try {
-              data = JSON.parse(rawText);
-            } catch {
-              console.error("[Error] JSON Parsing Failed");
-              return null;
-            }
-
-            if (data.response?.docs?.length > 0) {
-              return data.response.docs.slice(0, 3).map((item: any) => item.doc);
-            }
-          } catch (searchError) {
-            console.error(`[Search Error] Strategy ${strategy} failed:`, searchError);
-            return null;
-          }
-          return null;
-        };
-
-        if (!foundBooks) {
-          foundBooks = await searchBook("1.원본+대출순", `title=${encodeURIComponent(cleanTitle)}&sort=loan`);
-        }
-        if (!foundBooks && cleanTitle !== noSpaceTitle) {
-          foundBooks = await searchBook("2.공백제거+대출순", `title=${encodeURIComponent(noSpaceTitle)}&sort=loan`);
-        }
-        if (!foundBooks) {
-          foundBooks = await searchBook("3.키워드+대출순", `keyword=${encodeURIComponent(cleanTitle)}&sort=loan`);
-        }
-        if (!foundBooks) {
-          foundBooks = await searchBook("4.원본+정렬X", `title=${encodeURIComponent(cleanTitle)}`);
-        }
-        if (!foundBooks && cleanTitle !== noSpaceTitle) {
-          foundBooks = await searchBook("5.공백제거+정렬X", `title=${encodeURIComponent(noSpaceTitle)}`);
-        }
-        if (!foundBooks) {
-          foundBooks = await searchBook("6.키워드+정렬X", `keyword=${encodeURIComponent(cleanTitle)}`);
-        }
-
-        if (!foundBooks) {
-          console.log(`[Fail] No results for: ${title}`);
-          continue;
-        }
+        const foundBooks = precheckBooksByTerm.get(title);
+        if (!foundBooks || foundBooks.length === 0) continue;
 
         const processedBooksByIsbn = new Map<
           string,
@@ -396,7 +433,7 @@ export async function GET(request: Request) {
                 publisher: bookInfo.publisher,
                 pubYear: bookInfo.publication_year,
                 isbn: isbnKey,
-                imageUrl: aladinItem.coverUrl || pickBookImageUrl(bookInfo),
+                imageUrl: pickBookImageUrl(bookInfo),
               },
               libraries: librariesWithStatus,
             });
@@ -419,7 +456,7 @@ export async function GET(request: Request) {
           );
 
           if (!existing.metadata.imageUrl) {
-            existing.metadata.imageUrl = aladinItem.coverUrl || pickBookImageUrl(bookInfo);
+            existing.metadata.imageUrl = pickBookImageUrl(bookInfo);
           }
           if (!existing.metadata.title && aladinItem.title) {
             existing.metadata.title = aladinItem.title;
@@ -430,17 +467,24 @@ export async function GET(request: Request) {
 
         if (processedBooks.length > 0) {
           results.push({
-            searchTerm: cleanTitle,
+            searchTerm: title.trim(),
             books: processedBooks,
           });
         }
       } catch (processingError) {
         console.error(`Processing Error (${title}):`, processingError);
+        statusCode = 500;
+        errorCode = "SEARCH_PROCESSING_ERROR";
+        responseBody = { error: "도서 정보 조회 중 오류가 발생하여 전체 검색을 중단했습니다." };
+        return NextResponse.json(responseBody, { status: statusCode });
       }
     }
 
     resultCount = results.reduce((sum, item: any) => sum + item.books.length, 0);
-    responseBody = results;
+    responseBody = {
+      results,
+      invalidTerms,
+    };
     return NextResponse.json(responseBody, { status: statusCode });
   } catch (error) {
     console.error("Search API unexpected error:", error);

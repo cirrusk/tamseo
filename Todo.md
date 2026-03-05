@@ -608,3 +608,17 @@
 - 결과:
   - `https://tamseo.firstapp.kr/test`에서 입력 검색 즉시 전체 응답 검증 가능
   - `npm run build` 성공 (기존 `<img>` 경고 1건 유지)
+
+### 2026-03-05 - /test2 ISBN 기반 알라딘 ItemLookUp 테스트 페이지 추가
+- 상태: DONE
+- 목표:
+  - 운영 도메인 `/test2`에서 ISBN 입력 후 알라딘 ItemLookUp 응답을 확인할 수 있도록 구현
+- 작업 항목:
+  1. DONE: 테스트 API 라우트 추가 (`/api/test/aladin-lookup`)
+  2. DONE: ItemLookUp(XML) 호출 + 응답 파싱(item/title/author/publisher/pubDate/isbn/isbn13/link/cover)
+  3. DONE: 테스트 페이지 추가 (`/test2`) 및 ISBN 입력/조회 UI 구현
+  4. DONE: 응답 JSON 전체 + 원본 XML 전체 표시
+  5. DONE: 빌드 검증
+- 결과:
+  - `/test2`에서 ISBN 입력 기반 실시간 테스트 가능
+  - `npm run build` 성공 (기존 `<img>` ESLint 경고 1건 유지)
