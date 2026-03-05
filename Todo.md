@@ -455,6 +455,59 @@
   - `npm run build` 성공
   - 로컬 서버 실행 및 `http://127.0.0.1:3000` 응답 200 확인
   - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - 검색어 전체 사전검증 후 상세조회(원자적 검색 흐름)
+- 상태: DONE
+- 목표:
+  - 입력한 검색어 중 하나라도 문제(특수문자/검색 실패/처리 오류)가 있으면 전체 검색 중단
+  - 모든 검색어가 유효할 때만 도서관 상세 정보 조회 진행
+- 작업 항목:
+  1. DONE: 서버 허용 문자 정책을 클라이언트와 동일(`한글/영문/숫자/공백`)로 통일
+  2. DONE: `srchBooks` 전략 조회 로직을 재사용 함수로 분리
+  3. DONE: Phase 1(전체 사전검증) 추가, 실패 시 즉시 오류 반환
+  4. DONE: Phase 2(상세 조회)는 사전검증 통과 후에만 실행
+  5. DONE: 처리 중 오류 발생 시 부분 결과 대신 전체 실패 반환
+  6. DONE: 빌드 검증
+- 결과:
+  - 다섯 권 중 한 권이라도 문제 있으면 앞의 4권만 부분 검색되는 동작 제거
+  - 전체 입력이 유효할 때만 최종 결과 반환
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - 검색 지연 안심 메시지/중복 클릭 방지 UX 보완
+- 상태: DONE
+- 목표:
+  - 로딩 3초 초과 시 안심 메시지 노출
+  - 로딩 중 중복 제출 완전 차단 + 비활성 스타일 명확화
+- 작업 항목:
+  1. DONE: `slowLoading` 상태 및 3초 타이머(`setTimeout`) 추가
+  2. DONE: 검색 시작 시 타이머 시작, 종료 시 `clearTimeout + slowLoading false` 초기화
+  3. DONE: `handleSearch` 최상단 `if (loading) return` 방어 로직 추가
+  4. DONE: 버튼 비활성 시 회색 배경/회색 텍스트/`cursor-not-allowed` 적용
+  5. DONE: 로딩 스켈레톤 상단에 안심 메시지 UI 추가
+  6. DONE: 빌드 검증
+- 결과:
+  - 3초 이상 지연 시 안내 메시지가 로딩 영역 상단에 노출됨
+  - 로딩 중 중복 클릭/중복 제출 차단됨
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
+
+### 2026-03-05 - 부분 실패 허용 + 2글자 이상 권장 검색 흐름 전환
+- 상태: DONE
+- 목표:
+  - 일부 검색어가 부적합/무결과여도 나머지 검색어 결과는 정상 제공
+  - 1글자 검색어는 자동 제외(2글자 이상 권장)
+- 작업 항목:
+  1. DONE: `/api/search`에서 사전검증 실패 검색어를 `invalidTerms`로 수집 후 부분 실패 처리
+  2. DONE: 유효 검색어가 0개일 때만 전체 실패(`NO_VALID_SEARCH_TERM`) 반환
+  3. DONE: API 응답 형식을 `{ results, invalidTerms }`로 확장
+  4. DONE: 프론트에서 `invalidTerms` 안내(alert + 인라인 배너) 추가
+  5. DONE: 빌드 검증
+- 결과:
+  - `해리포터/가/나/다/라` 입력 시 유효 검색어 결과는 유지되고 제외 검색어는 안내됨
+  - 1글자 검색어는 자동 제외 처리(2자 이상 권장)
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`src/app/page.tsx`의 `<img>` 사용) 유지
 - 결과:
   - 소개 페이지 본문 하단 로고 중복 제거 완료
   - 로딩 시 스켈레톤이 검색창 아래부터 표시되어 가독성 개선
@@ -508,3 +561,50 @@
   1. IN_PROGRESS: 소개 페이지 하단 `숨겨진 지식을 찾다` 로고 영역 삭제
   2. TODO: 로딩 스켈레톤 시작 위치를 검색창 아래로 이동
   3. TODO: 빌드 검증 및 결과 기록
+
+### 2026-03-05 - 검색 Partial Success(부분 성공) UI/로직 전환
+- 상태: DONE
+- 목표:
+  - 다중 검색 시 일부 검색어 실패가 있어도 성공 결과는 계속 표시
+  - 실패 검색어는 별도 태그 섹션으로 노출
+  - 전체 실패 시 전용 안내 UI 제공
+- 작업 항목:
+  1. DONE: `emptyTerms` 상태 추가 및 검색 시작 시 초기화
+  2. DONE: API 응답을 성공 결과(`books.length > 0`)와 실패 검색어(`emptyTerms`)로 분리
+  3. DONE: 기존 all-or-nothing 경고 흐름(`invalidTermsNotice`/중단형 안내) 제거
+  4. DONE: 렌더링 3분기 적용
+     - Case A: 성공 결과 존재 시 Insights + 결과 카드 표시
+     - Case B: 성공 결과 없음 + 실패 검색어만 존재 시 전용 empty-state 카드 표시
+     - Case C: 성공 결과 + 일부 실패 검색어 동시 존재 시 하단 태그 섹션 표시
+  5. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - 검색 실패 검색어는 `XCircle` 태그 UI로 별도 안내
+  - 성공 결과는 중단 없이 정상 렌더링
+  - `npm run build` 성공, 기존 `<img>` ESLint 경고 1건 유지
+
+### 2026-03-05 - 운영 환경 알라딘 API 검증용 /test 페이지 추가
+- 상태: DONE
+- 목표:
+  - 운영 도메인에서 알라딘 제목 검색 결과를 직접 비교 검증할 수 있는 테스트 페이지 제공
+  - `/test`에서 2개 쿼리(기본: 해리포터 불의 잔 / 해리포터 불의 잔 2) 동시 조회 지원
+- 작업 항목:
+  1. DONE: 테스트 API 라우트 추가 (`/api/test/aladin-search`)
+  2. DONE: 알라딘 ItemSearch(XML) 호출 + 주요 필드 파싱(title/author/publisher/pubDate/isbn13/link/cover)
+  3. DONE: 테스트 UI 페이지 추가 (`/test`) 및 2개 검색어 결과 카드 비교 출력
+  4. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - 운영 도메인에서 `https://tamseo.firstapp.kr/test` 접속 후 즉시 테스트 가능
+  - `npm run build` 성공, 기존 `<img>` ESLint 경고 1건 유지
+
+### 2026-03-05 - /test 페이지 응답 전체 노출형으로 개선
+- 상태: DONE
+- 목표:
+  - 운영 도메인 `/test`에서 검색어를 직접 입력하면 알라딘 API 응답 값을 화면에 전체 표시
+- 작업 항목:
+  1. DONE: 테스트 API 응답에 `rawXml` 전체 본문 포함
+  2. DONE: `/test` UI를 단일 검색어 입력형으로 개편
+  3. DONE: 화면에 요약/전체 JSON/원본 XML 전부 노출
+  4. DONE: 빌드 검증
+- 결과:
+  - `https://tamseo.firstapp.kr/test`에서 입력 검색 즉시 전체 응답 검증 가능
+  - `npm run build` 성공 (기존 `<img>` 경고 1건 유지)
