@@ -657,17 +657,13 @@ function SearchContent({
             <div className="space-y-16">
               {filteredResults.map((term, tIdx) => (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                  <header className="sticky top-16 z-30 flex items-end justify-between border-b-2 border-[#1D1D1F] pb-4 mb-6 px-2 pt-3 bg-[#F5F5F7]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#F5F5F7]/80">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#E5E5EA]/50 p-2.5 rounded-2xl">
-                        <Search className="w-5 h-5 text-[#1D1D1F]" strokeWidth={2.5} />
-                      </div>
-                      <h2 className="text-[26px] sm:text-[32px] font-extrabold text-[#1D1D1F] tracking-tight leading-none">
-                        &ldquo;{term.searchTerm}&rdquo;
-                      </h2>
-                    </div>
-                    <span className="text-[14px] font-bold text-[#86868B] mb-1">
-                      관련 도서 {term.books.length}권
+                  <header className="sticky top-16 z-30 flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 bg-[#F5F5F7]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#F5F5F7]/80 group">
+                    <h2 className="text-[20px] sm:text-[24px] font-bold text-[#1D1D1F] tracking-tight shrink-0">
+                      {term.searchTerm}
+                    </h2>
+                    <div className="h-[1px] bg-[#E5E5EA] flex-1 mt-1 transition-colors group-hover:bg-[#D2D2D7]"></div>
+                    <span className="text-[12px] sm:text-[13px] font-semibold text-[#86868B] bg-[#E5E5EA]/50 px-2.5 py-1 rounded-md shrink-0">
+                      {term.books.length}권
                     </span>
                   </header>
 
