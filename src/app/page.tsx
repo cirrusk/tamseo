@@ -74,6 +74,11 @@ const fetchLibraryData = async (
 
 const DISTRICT_WHEEL_ITEM_HEIGHT = 44;
 const DISTRICT_WHEEL_VISIBLE_ROWS = 5;
+const splitInputTerms = (value: string): string[] =>
+  value
+    .split(/[\n,]/)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0);
 
 const DistrictWheelPicker = ({
   value,
@@ -391,7 +396,7 @@ function SearchContent({
     if (booksQuery) {
       const books = decodeURIComponent(booksQuery).split(',');
       setBookInput(prev => {
-        const existing = prev.split('\n').map(b => b.trim()).filter(b => b.length > 0);
+        const existing = splitInputTerms(prev);
         const combined = Array.from(new Set([...existing, ...books])).slice(0, 5);
         return combined.join('\n');
       });
@@ -403,10 +408,7 @@ function SearchContent({
     if (injectedBooks.length === 0) return;
 
     setBookInput((prev) => {
-      const existing = prev
-        .split('\n')
-        .map((b) => b.trim())
-        .filter((b) => b.length > 0);
+      const existing = splitInputTerms(prev);
       const combined = Array.from(new Set([...existing, ...injectedBooks])).slice(0, 5);
       return combined.join('\n');
     });
@@ -431,7 +433,7 @@ function SearchContent({
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    let terms = bookInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+    let terms = splitInputTerms(bookInput);
     
     if (terms.length === 0) { alert("적어도 한 권 이상의 책 제목을 입력해주세요."); return; }
     for (const term of terms) { 
@@ -572,7 +574,7 @@ function SearchContent({
           <div className={`relative bg-white rounded-[28px] p-2 flex flex-col transition-all duration-500 ease-out border border-transparent ${isFocused ? 'shadow-[0_12px_40px_rgb(0,0,0,0.12)] scale-[1.01] border-[#E5E5EA]' : 'shadow-[0_4px_20px_rgb(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgb(0,0,0,0.08)]'}`}>
             <div className="flex items-start px-4 pt-4 pb-2">
               <Search className="w-6 h-6 text-[#86868B] shrink-0 mt-0.5" strokeWidth={2.5} />
-              <textarea ref={textareaRef} rows={2} value={bookInput} onChange={(e) => setBookInput(e.target.value)} onKeyDown={handleTextareaKeyDown} placeholder="찾고 싶은 책 제목을 입력하세요.&#10;(줄바꿈으로 최대 5권 동시 검색)" className="w-full ml-4 bg-transparent text-[19px] font-semibold text-[#1D1D1F] placeholder:text-[#86868B]/50 focus:outline-none resize-none leading-relaxed custom-scrollbar overflow-hidden" style={{ minHeight: '62px' }} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)} />
+              <textarea ref={textareaRef} rows={2} value={bookInput} onChange={(e) => setBookInput(e.target.value)} onKeyDown={handleTextareaKeyDown} placeholder="찾고 싶은 책 제목을 입력하세요.&#10;(줄바꿈 또는 쉼표로 최대 5권 동시 검색)" className="w-full ml-4 bg-transparent text-[19px] font-semibold text-[#1D1D1F] placeholder:text-[#86868B]/50 focus:outline-none resize-none leading-relaxed custom-scrollbar overflow-hidden" style={{ minHeight: '62px' }} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)} />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 pt-3 px-4 pb-2 border-t border-[#F5F5F7] gap-4 sm:gap-0">
               <div className="flex items-center gap-4">
