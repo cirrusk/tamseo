@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
-import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, Info, X, Loader2, ChevronDown, Hammer, XCircle } from 'lucide-react';
+import { Search, ChevronRight, BookOpen, MapPin, CheckCircle2, Info, X, Loader2, ChevronDown, Hammer, XCircle, Sparkles } from 'lucide-react';
 import { TamseoLogo } from '@/components/SharedUI';
 
 // =========================================================================
@@ -738,20 +738,26 @@ function SearchContent({
                 );
                 return (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                  <header className="flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 group">
-                    <h2 className="text-[20px] sm:text-[24px] font-bold text-[#1D1D1F] tracking-tight shrink-0">
-                      {term.searchTerm}
-                    </h2>
-                    <div className="h-[1px] bg-[#E5E5EA] flex-1 mt-1 transition-colors group-hover:bg-[#D2D2D7]"></div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-[12px] sm:text-[13px] font-semibold text-[#86868B] bg-[#E5E5EA]/50 px-2.5 py-1 rounded-md">
-                        {term.books.length}권
-                      </span>
+                  <header className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6 px-1 sm:px-2 py-3 group">
+                    <div className="flex flex-wrap items-center gap-3 shrink-0">
+                      <h2 className="text-[20px] sm:text-[24px] font-bold text-[#1D1D1F] tracking-tight">
+                        {term.searchTerm}
+                      </h2>
                       {expandedMatch && (
-                        <span className="text-[11px] sm:text-[12px] font-medium text-[#0066CC] tracking-tight whitespace-nowrap">
-                          “{expandedMatch.expanded}”로 확장 검색을 적용했어요
-                        </span>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#F5F5F7] rounded-lg border border-[#E5E5EA]/80">
+                          <Sparkles className="w-3.5 h-3.5 text-[#A1A1A6]" />
+                          <span className="text-[12px] font-medium text-[#86868B] tracking-tight">
+                            <strong className="font-semibold text-[#515154]">&ldquo;{expandedMatch.expanded}&rdquo;</strong> 확장 검색 적용
+                          </span>
+                        </div>
                       )}
+                    </div>
+                    <div className="hidden sm:block h-[1px] bg-[#E5E5EA] flex-1 mt-1 transition-colors group-hover:bg-[#D2D2D7]"></div>
+                    <div className="shrink-0 flex sm:block items-center justify-between border-t sm:border-0 border-[#F5F5F7] pt-3 sm:pt-0 mt-1 sm:mt-0">
+                      <span className="sm:hidden text-[12px] font-bold text-[#86868B] uppercase tracking-wider">Results</span>
+                      <span className="text-[13px] font-bold text-[#1D1D1F] bg-[#F5F5F7] px-3 py-1.5 rounded-lg border border-[#E5E5EA]/50">
+                        총 {term.books.length}권
+                      </span>
                     </div>
                   </header>
 
