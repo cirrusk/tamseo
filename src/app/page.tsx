@@ -732,31 +732,27 @@ function SearchContent({
           </div>
 
           <div className="space-y-16">
-              {expandedTerms.length > 0 && (
-                <section className="rounded-2xl border border-[#E5E5EA] bg-[#F5F5F7]/85 backdrop-blur-sm p-4 sm:p-5">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-4 h-4 text-[#0066CC] mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[13px] sm:text-[14px] font-semibold text-[#1D1D1F] tracking-tight">
-                        일부 검색어에서 확장 검색을 적용했어요.
-                      </p>
-                      <p className="text-[12px] sm:text-[13px] text-[#6E6E73] mt-1 leading-relaxed">
-                        {expandedTerms.map((item) => `“${item.original}” → “${item.expanded}”`).join(" · ")}
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              )}
-              {filteredResults.map((term, tIdx) => (
+              {filteredResults.map((term, tIdx) => {
+                const expandedMatch = expandedTerms.find(
+                  (item) => item.original === term.searchTerm
+                );
+                return (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                   <header className="flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 group">
                     <h2 className="text-[20px] sm:text-[24px] font-bold text-[#1D1D1F] tracking-tight shrink-0">
                       {term.searchTerm}
                     </h2>
                     <div className="h-[1px] bg-[#E5E5EA] flex-1 mt-1 transition-colors group-hover:bg-[#D2D2D7]"></div>
-                    <span className="text-[12px] sm:text-[13px] font-semibold text-[#86868B] bg-[#E5E5EA]/50 px-2.5 py-1 rounded-md shrink-0">
-                      {term.books.length}권
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[12px] sm:text-[13px] font-semibold text-[#86868B] bg-[#E5E5EA]/50 px-2.5 py-1 rounded-md">
+                        {term.books.length}권
+                      </span>
+                      {expandedMatch && (
+                        <span className="text-[11px] sm:text-[12px] font-medium text-[#0066CC] tracking-tight whitespace-nowrap">
+                          “{expandedMatch.expanded}”로 확장 검색을 적용했어요
+                        </span>
+                      )}
+                    </div>
                   </header>
 
                   <div className="space-y-6">
@@ -808,7 +804,7 @@ function SearchContent({
                     ))}
                   </div>
                 </section>
-              ))}
+              )})}
           </div>
 
           {emptyTerms.length > 0 && (
