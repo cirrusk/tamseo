@@ -66,6 +66,12 @@ const sanitizeHeaderValue = (value: string, maxLength: number): string =>
 const normalizeSearchQuery = (raw: string): string =>
   raw.normalize("NFKC").replace(CONTROL_CHARS_REGEX, "").replace(/\s+/g, " ").trim();
 
+const stripTrailingNumberSuffix = (query: string): string => {
+  const stripped = query.replace(/\s*\d+\s*$/, "").trim();
+  if (!stripped || stripped === query.trim()) return query.trim();
+  return stripped;
+};
+
 const parseAndValidateQueries = (queriesRaw: string): { queries: string[]; error?: string } => {
   const queries = queriesRaw
     .split(",")
@@ -406,6 +412,7 @@ export async function GET(request: Request) {
 
     const results = [];
     const invalidTerms: string[] = [];
+    const expandedTermByOriginal = new Map<string, string>();
     const searchStartTime = Date.now();
     const precheckBooksByTerm = new Map<string, any[]>();
     const fallbackIsbnByTerm = new Map<string, string[]>();
@@ -439,12 +446,35 @@ export async function GET(request: Request) {
       const foundBooks = await searchBooksByStrategies(API_KEY, title);
       if (!foundBooks) {
         const fallbackIsbnCandidates = await fetchAladinBookIsbnCandidatesByTitle(title);
-        if (fallbackIsbnCandidates.length === 0) {
-          invalidTerms.push(title);
+        if (fallbackIsbnCandidates.length > 0) {
+          fallbackIsbnByTerm.set(title, fallbackIsbnCandidates);
+          precheckBooksByTerm.set(title, []);
           continue;
         }
-        fallbackIsbnByTerm.set(title, fallbackIsbnCandidates);
-        precheckBooksByTerm.set(title, []);
+
+        const strippedTerm = stripTrailingNumberSuffix(title);
+        const canTryStripped =
+          strippedTerm !== title.trim() && strippedTerm.length >= MIN_QUERY_LENGTH;
+
+        if (canTryStripped) {
+          const strippedFoundBooks = await searchBooksByStrategies(API_KEY, strippedTerm);
+          if (strippedFoundBooks) {
+            expandedTermByOriginal.set(title, strippedTerm);
+            precheckBooksByTerm.set(title, strippedFoundBooks);
+            continue;
+          }
+
+          const strippedFallbackIsbnCandidates =
+            await fetchAladinBookIsbnCandidatesByTitle(strippedTerm);
+          if (strippedFallbackIsbnCandidates.length > 0) {
+            expandedTermByOriginal.set(title, strippedTerm);
+            fallbackIsbnByTerm.set(title, strippedFallbackIsbnCandidates);
+            precheckBooksByTerm.set(title, []);
+            continue;
+          }
+        }
+
+        invalidTerms.push(title);
         continue;
       }
       precheckBooksByTerm.set(title, foundBooks);
@@ -597,9 +627,13 @@ export async function GET(request: Request) {
     }
 
     resultCount = results.reduce((sum, item: any) => sum + item.books.length, 0);
+    const expandedTerms = Array.from(expandedTermByOriginal.entries()).map(
+      ([original, expanded]) => ({ original, expanded })
+    );
     responseBody = {
       results,
       invalidTerms,
+      expandedTerms,
     };
     return NextResponse.json(responseBody, { status: statusCode });
   } catch (error) {

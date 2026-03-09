@@ -21,7 +21,12 @@ interface LibraryAvailability { libraryName: string; isAvailable: boolean; }
 interface GroupedBookResult { metadata: BookMetadata; libraries: LibraryAvailability[]; }
 interface SearchResultItem { searchTerm: string; books: GroupedBookResult[]; }
 interface LibraryInfo { district: string; name: string; address: string; }
-interface SearchApiResponse { results: SearchResultItem[]; invalidTerms?: string[]; }
+interface ExpandedSearchTerm { original: string; expanded: string; }
+interface SearchApiResponse {
+  results: SearchResultItem[];
+  invalidTerms?: string[];
+  expandedTerms?: ExpandedSearchTerm[];
+}
 
 const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
 const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
@@ -58,11 +63,12 @@ const fetchLibraryData = async (
   }
   const data = await response.json();
   if (Array.isArray(data)) {
-    return { results: data, invalidTerms: [] };
+    return { results: data, invalidTerms: [], expandedTerms: [] };
   }
   return {
     results: Array.isArray(data?.results) ? data.results : [],
     invalidTerms: Array.isArray(data?.invalidTerms) ? data.invalidTerms : [],
+    expandedTerms: Array.isArray(data?.expandedTerms) ? data.expandedTerms : [],
   };
 };
 
@@ -326,6 +332,7 @@ function SearchContent({
   const [loading, setLoading] = useState<boolean>(false);
   const [slowLoading, setSlowLoading] = useState<boolean>(false);
   const [emptyTerms, setEmptyTerms] = useState<string[]>([]);
+  const [expandedTerms, setExpandedTerms] = useState<ExpandedSearchTerm[]>([]);
   const [results, setResults] = useState<SearchResultItem[] | null>(null);
   const [searched, setSearched] = useState<boolean>(false);
   
@@ -438,6 +445,7 @@ function SearchContent({
 
     setLoading(true); setSearched(true); setResults(null);
     setEmptyTerms([]);
+    setExpandedTerms([]);
     setExpandedStats({ owned: false, available: false });
 
     try {
@@ -462,13 +470,27 @@ function SearchContent({
         new Set(terms.map((term) => term.trim()).filter((term) => term.length > 0))
       ).filter((term) => !successfulTerms.has(term) && !knownEmptyTermSet.has(term));
       const mergedEmptyTerms = Array.from(new Set([...knownEmptyTerms, ...unresolvedNoHoldingTerms]));
+      const successfulTermSet = new Set(
+        successfulResults
+          .map((item) => item.searchTerm.trim())
+          .filter((term) => term.length > 0)
+      );
+      const normalizedExpandedTerms = (data.expandedTerms ?? [])
+        .map((item) => ({
+          original: typeof item?.original === "string" ? item.original.trim() : "",
+          expanded: typeof item?.expanded === "string" ? item.expanded.trim() : "",
+        }))
+        .filter((item) => item.original.length > 0 && item.expanded.length > 0)
+        .filter((item) => successfulTermSet.has(item.original));
 
       setResults(successfulResults);
       setEmptyTerms(mergedEmptyTerms);
+      setExpandedTerms(normalizedExpandedTerms);
     } catch (error) {
       console.error("Search failed", error);
       const invalidTerms = (error as Error & { invalidTerms?: string[] }).invalidTerms ?? [];
       setEmptyTerms(invalidTerms);
+      setExpandedTerms([]);
       setResults([]);
     } finally {
       if (slowLoadingTimerRef.current) {
@@ -710,6 +732,21 @@ function SearchContent({
           </div>
 
           <div className="space-y-16">
+              {expandedTerms.length > 0 && (
+                <section className="rounded-2xl border border-[#E5E5EA] bg-[#F5F5F7]/85 backdrop-blur-sm p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-4 h-4 text-[#0066CC] mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] sm:text-[14px] font-semibold text-[#1D1D1F] tracking-tight">
+                        일부 검색어에서 확장 검색을 적용했어요.
+                      </p>
+                      <p className="text-[12px] sm:text-[13px] text-[#6E6E73] mt-1 leading-relaxed">
+                        {expandedTerms.map((item) => `“${item.original}” → “${item.expanded}”`).join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
               {filteredResults.map((term, tIdx) => (
                 <section key={`term-${tIdx}`} className="animate-in fade-in slide-in-from-bottom-8 duration-700">
                   <header className="flex items-center gap-4 mb-6 px-1 sm:px-2 py-3 group">
