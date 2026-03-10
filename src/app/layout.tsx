@@ -36,7 +36,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Tamseo Team", url: "https://tamseo.firstapp.kr" }],
   openGraph: {
     title: "탐서(Tamseo) - 가장 스마트한 도서관 통합 검색",
-    description: "수십 권의 책, 어느 도서관에 제일 많을까? 10초 만에 찾아보세요.",
+    description:
+      "수십 곳의 서울시 도서관을 한 번에 검색하세요. 파친코, 어린이 전집 등 원하는 책이 가장 많이 있는 근처 도서관을 즉시 찾아줍니다. 엄마들의 시간을 아껴주는 지식 탐험 나침반, 탐서.",
     url: "https://tamseo.firstapp.kr",
     siteName: "탐서(Tamseo)",
     locale: "ko_KR",

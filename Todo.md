@@ -9,6 +9,31 @@
 
 ## 현재 작업
 
+### 2026-03-10 - Open Graph 서비스 설명 문구 업데이트
+- 상태: DONE
+- 목표:
+  - Open Graph 공유 설명에 요청 문구 반영
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx` `openGraph.description` 업데이트
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `openGraph.description`에 요청 문구 반영
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - robots.txt 네이버 크롤러 허용 명시
+- 상태: DONE
+- 목표:
+  - robots.txt에 네이버 크롤러 허용 규칙을 명시적으로 추가
+- 작업 항목:
+  1. DONE: `public/robots.txt`에 네이버 user-agent 허용 라인 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `User-agent: Yeti` + `Allow: /` 규칙 추가
+  - 기존 전체 허용(`User-agent: *`) 및 Sitemap/Host/PIN 라인 유지
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - 네이버 웹마스터 메타 태그 추가
 - 상태: DONE
 - 목표:

@@ -1,6 +1,9 @@
 User-agent: *
 Allow: /
 
+User-agent: Yeti
+Allow: /
+
 Sitemap: https://tamseo.firstapp.kr/sitemap.xml
 Host: https://tamseo.firstapp.kr
 
