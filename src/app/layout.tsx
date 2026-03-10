@@ -9,8 +9,51 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "G-VY3CKSDPVV";
 const GOOGLE_SITE_VERIFICATION = "mJ1Bujqi5OAxXVmbLEFLQHzxHJ5E69taIXNb0EhQt3g";
 
 export const metadata: Metadata = {
-  title: "탐서(探書) - 지식 탐험 나침반",
-  description: "가장 아날로그적인 휴식을 위한, 가장 스마트한 연결.",
+  metadataBase: new URL("https://tamseo.firstapp.kr"),
+  title: {
+    default: "탐서(Tamseo) - 우리 동네 도서관 통합 검색 & 대출 나침반",
+    template: "%s | 탐서(Tamseo)",
+  },
+  description:
+    "수십 곳의 서울시 도서관을 한 번에 검색하세요. 파친코, 어린이 전집 등 원하는 책이 가장 많이 있는 근처 도서관을 즉시 찾아줍니다. 엄마들의 시간을 아껴주는 지식 탐험 나침반, 탐서.",
+  keywords: [
+    "도서관",
+    "서울시 도서관",
+    "책 검색",
+    "도서 대출",
+    "전집 대여",
+    "어린이 도서관",
+    "베스트셀러 대여",
+    "도서관 정보나루",
+    "탐서",
+    "Tamseo",
+    "스마트 도서관",
+    "독서",
+    "독서국가",
+    "독서 문화",
+    "책 읽는 대한민국",
+  ],
+  authors: [{ name: "Tamseo Team", url: "https://tamseo.firstapp.kr" }],
+  openGraph: {
+    title: "탐서(Tamseo) - 가장 스마트한 도서관 통합 검색",
+    description: "수십 권의 책, 어느 도서관에 제일 많을까? 10초 만에 찾아보세요.",
+    url: "https://tamseo.firstapp.kr",
+    siteName: "탐서(Tamseo)",
+    locale: "ko_KR",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "탐서 서비스 소개 이미지",
+      },
+    ],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   verification: {
     google: GOOGLE_SITE_VERIFICATION,
   },

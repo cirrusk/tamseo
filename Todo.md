@@ -9,6 +9,75 @@
 
 ## 현재 작업
 
+### 2026-03-10 - Search Console sitemap 가져오기 실패(404) 대응
+- 상태: DONE
+- 목표:
+  - 운영 URL에서 sitemap/robots를 200으로 제공해 Search Console 제출 오류 해소
+- 작업 항목:
+  1. DONE: `sitemap.ts` 기본 도메인 정정 및 `robots.ts` 추가
+  2. DONE: 빌드 검증
+  3. DONE: 커밋/푸시로 배포 반영
+- 결과:
+  - 운영 확인 시 `https://tamseo.firstapp.kr/sitemap.xml`/`robots.txt`가 404임을 확인
+  - `src/app/sitemap.ts` 기본 도메인을 `https://tamseo.firstapp.kr`로 정정
+  - `src/app/robots.ts` 추가로 `sitemap`/`host` 명시
+  - `npm run build` 성공, `○ /sitemap.xml`, `○ /robots.txt` 생성 확인
+
+### 2026-03-10 - metadata keywords 보강
+- 상태: DONE
+- 목표:
+  - `layout.tsx`의 `keywords` 배열에 독서 관련 키워드 확장
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx` `keywords` 배열 업데이트
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - 기존 키워드 유지 + `독서`, `독서국가`, `독서 문화`, `책 읽는 대한민국` 추가
+  - `title`, `description`, `verification`, `openGraph` 등 기존 metadata 속성 유지
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - Open Graph URL 정정
+- 상태: DONE
+- 목표:
+  - `openGraph.url`을 리디렉션 URL이 아닌 실제 서비스 URL로 정정
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx`의 `openGraph.url` 수정
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `openGraph.url`을 `https://tamseo.firstapp.kr`로 변경
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - layout metadata SEO 고도화
+- 상태: DONE
+- 목표:
+  - Next.js Metadata API 기반으로 기본/OG/robots SEO 메타데이터를 풍부하게 설정
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx` metadata 객체 확장
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `title`을 `default/template` 객체 형태로 전환
+  - `description`, `keywords`, `authors`, `openGraph`, `robots` 확장 적용
+  - `metadataBase`를 `https://tamseo.firstapp.kr`로 설정해 OG 상대경로 보완
+  - 기존 `verification.google` 및 명시적 meta 태그 유지
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - sitemap.xml 생성
+- 상태: DONE
+- 목표:
+  - Search Console 제출용 sitemap 엔드포인트(`/sitemap.xml`) 제공
+- 작업 항목:
+  1. DONE: `src/app/sitemap.ts` 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `src/app/sitemap.ts` 추가로 `/sitemap.xml` 자동 생성
+  - 포함 경로: `/`, `/about`, `/collections`, `/privacy`
+  - 기본 도메인: `NEXT_PUBLIC_SITE_URL` 또는 `SITE_URL` 우선, 미설정 시 `https://tamseo.kr`
+  - `npm run build` 성공
+  - 라우트 목록에서 `○ /sitemap.xml` 확인
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - Search Console 메타 태그 미검출 대응
 - 상태: DONE
 - 목표:
