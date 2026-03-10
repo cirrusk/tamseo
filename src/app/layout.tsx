@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "탐서(Tamseo) - 가장 스마트한 도서관 통합 검색",
     description:
-      "수십 곳의 서울시 도서관을 한 번에 검색하세요. 파친코, 어린이 전집 등 원하는 책이 가장 많이 있는 근처 도서관을 즉시 찾아줍니다. 엄마들의 시간을 아껴주는 지식 탐험 나침반, 탐서.",
+      "서울시 도서관 책을 통합 검색해 원하는 책이 많은 가까운 도서관을 빠르게 찾는 탐서.",
     url: "https://tamseo.firstapp.kr",
     siteName: "탐서(Tamseo)",
     locale: "ko_KR",

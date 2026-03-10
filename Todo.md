@@ -9,6 +9,19 @@
 
 ## 현재 작업
 
+### 2026-03-10 - Open Graph 설명 80자 미만 축약
+- 상태: DONE
+- 목표:
+  - Open Graph 설명문을 공백 포함 80자 미만으로 조정
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx`의 `openGraph.description` 축약
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `openGraph.description`을 47자 문구로 변경
+  - 새 문구: `서울시 도서관 책을 통합 검색해 원하는 책이 많은 가까운 도서관을 빠르게 찾는 탐서.`
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - 네이버 80자 설명문 기준 반영
 - 상태: DONE
 - 목표:
