@@ -9,6 +9,18 @@
 
 ## 현재 작업
 
+### 2026-03-10 - GA 검색 이벤트 표준(`search`) 동시 전송
+- 상태: DONE
+- 목표:
+  - 커스텀 이벤트(`tamseo_search`)와 함께 GA 표준 이벤트(`search`)도 동시 수집
+- 작업 항목:
+  1. DONE: `src/app/page.tsx` 이벤트 전송 로직 보강
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `window.gtag` 호출 시 `tamseo_search`와 `search` 이벤트를 동시에 전송하도록 적용
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - Search Console sitemap 가져오기 실패(404) 대응
 - 상태: DONE
 - 목표:
@@ -22,6 +34,8 @@
   - `src/app/sitemap.ts` 기본 도메인을 `https://tamseo.firstapp.kr`로 정정
   - `src/app/robots.ts` 추가로 `sitemap`/`host` 명시
   - `npm run build` 성공, `○ /sitemap.xml`, `○ /robots.txt` 생성 확인
+  - 커밋/배포: `d7369a5` 푸시 후 `build-and-push` 워크플로우 성공(run `22898940465`)
+  - 운영 재확인: `https://tamseo.firstapp.kr/sitemap.xml`/`robots.txt` 모두 HTTP 200
 
 ### 2026-03-10 - metadata keywords 보강
 - 상태: DONE

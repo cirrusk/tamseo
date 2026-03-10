@@ -100,6 +100,7 @@ const trackSearchEvent = (
   const sendWithRetry = (attempt: number) => {
     if (typeof window.gtag === "function") {
       window.gtag("event", "tamseo_search", eventParams);
+      window.gtag("event", "search", eventParams);
       return;
     }
     if (attempt >= 10) {
