@@ -10,12 +10,16 @@
 ## 현재 작업
 
 ### 2026-03-10 - main 배포 트리거(커밋/푸시)
-- 상태: IN_PROGRESS
+- 상태: DONE
 - 목표:
   - 반영된 GA4/서치콘솔 변경을 `main`에 푸시하여 CI/CD 배포 실행
 - 작업 항목:
-  1. TODO: 변경사항 커밋
-  2. TODO: `origin/main` 푸시
+  1. DONE: 변경사항 커밋
+  2. DONE: `origin/main` 푸시
+- 결과:
+  - 커밋: `26a8b84` (`feat: add GA4 tracking and search console verification`)
+  - 푸시: `origin/main` 반영 완료 (`328777f..26a8b84`)
+  - GitHub Actions 배포 워크플로우 트리거
 
 ### 2026-03-10 - Google Search Console 소유권 메타 태그 추가
 - 상태: DONE
