@@ -9,6 +9,104 @@
 
 ## 현재 작업
 
+### 2026-03-10 - main 배포 트리거(커밋/푸시)
+- 상태: IN_PROGRESS
+- 목표:
+  - 반영된 GA4/서치콘솔 변경을 `main`에 푸시하여 CI/CD 배포 실행
+- 작업 항목:
+  1. TODO: 변경사항 커밋
+  2. TODO: `origin/main` 푸시
+
+### 2026-03-10 - Google Search Console 소유권 메타 태그 추가
+- 상태: DONE
+- 목표:
+  - Next.js Metadata의 `verification.google`에 서치 콘솔 인증 코드 반영
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx` metadata에 `verification.google` 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `metadata.verification.google`에 `mJ1Bujqi5OAxXVmbLEFLQHzxHJ5E69taIXNb0EhQt3g` 반영
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - GA4 검색 이벤트 미기록 수정
+- 상태: DONE
+- 목표:
+  - 검색 이벤트 전송 누락 가능성을 줄이고 GA4에서 안정적으로 확인 가능하게 개선
+- 작업 항목:
+  1. DONE: 검색 이벤트 전송 방식을 `gtag` 직접 호출 + 재시도 로직으로 보완
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - 검색 이벤트를 `window.gtag('event', 'tamseo_search', ...)`로 직접 전송하도록 변경
+  - `gtag` 초기화 전 호출 시 최대 10회(300ms 간격) 재시도 로직 추가
+  - 이벤트 파라미터는 기존 집계 메타데이터(`search_action`, `district_code`, `query_count` 등) 유지
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - 검색 이벤트 GA4 수집 연동
+- 상태: DONE
+- 목표:
+  - 검색 시도/성공/실패 이벤트를 GA4에 전송
+  - 검색어 원문 대신 집계 메타데이터만 전송
+- 작업 항목:
+  1. DONE: `src/app/page.tsx` 검색 핸들러에 GA 이벤트 전송 로직 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `@next/third-parties/google`의 `sendGAEvent` 기반 `search` 이벤트 전송 로직 추가
+  - 전송 시점:
+    - `search_action=submit` (검색 요청 직전)
+    - `search_action=success` (결과 처리 완료)
+    - `search_action=failure` (예외 발생)
+  - 전송 파라미터: `district_code`, `query_count`, `successful_term_count`, `result_book_count`, `invalid_term_count`, `expanded_term_count`, `duration_ms`
+  - 검색어 원문 텍스트는 GA로 전송하지 않음
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - GA4 미수집 원인 점검
+- 상태: DONE
+- 목표:
+  - 서비스에서 GA4 태그가 실제 삽입/전송되는지 확인
+  - 미수집 원인을 재현 가능한 체크포인트로 정리
+- 작업 항목:
+  1. DONE: `next`/`@next/third-parties` 버전 및 설정 점검
+  2. DONE: 로컬 실행 후 HTML에서 GA 스크립트 삽입 여부 확인
+  3. DONE: 원인/조치안 정리 및 결과 기록
+- 결과:
+  - 버전 확인: `next@14.2.16`, `@next/third-parties@16.1.6` (peer 호환 범위 내)
+  - `.next` 산출물에서 `gaId: "G-VY3CKSDPVV"` 및 `googletagmanager` 로드 코드 확인
+  - 배포 환경 변수 누락/빌드 타임 미반영 대비를 위해 `layout.tsx`에 GA ID fallback(`G-VY3CKSDPVV`) 적용
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - GA4 측정 ID 변경
+- 상태: DONE
+- 목표:
+  - `NEXT_PUBLIC_GA_ID`를 `G-VY3CKSDPVV`로 갱신
+- 작업 항목:
+  1. DONE: `.env.local`에 `NEXT_PUBLIC_GA_ID` 반영
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `.env.local`에 `NEXT_PUBLIC_GA_ID=G-VY3CKSDPVV` 적용
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - GA4 연동 (@next/third-parties)
+- 상태: DONE
+- 목표:
+  - `@next/third-parties/google` 기반으로 GA4를 전역 레이아웃에 연동
+  - `NEXT_PUBLIC_GA_ID` 환경 변수 가이드 반영
+- 작업 항목:
+  1. DONE: `@next/third-parties@latest` 설치
+  2. DONE: `src/app/layout.tsx`에 `GoogleAnalytics` 적용
+  3. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `@next/third-parties` 의존성 추가 완료
+  - `src/app/layout.tsx`에 `GoogleAnalytics` 전역 삽입(환경 변수 존재 시 렌더링) 반영
+  - 빌드 시 ESLint 플러그인 충돌 방지를 위해 `.eslintrc.json`에 `"root": true` 추가
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+  - `127.0.0.1:3000`에서 `HTTP/1.1 200 OK` 응답 확인
+
 ### 2026-03-10 - 검색어 콤마 구분 입력 지원
 - 상태: DONE
 - 목표: 검색 입력에서 콤마(`,`)를 허용하고, 콤마 포함 시 여러 권으로 분리 인식

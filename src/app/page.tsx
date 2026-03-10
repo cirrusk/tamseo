@@ -28,6 +28,12 @@ interface SearchApiResponse {
   expandedTerms?: ExpandedSearchTerm[];
 }
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 const DISTRICTS = ["11230", "11250", "11090", "11160", "11210", "11050", "11170", "11180", "11110", "11100", "11060", "11200", "11140", "11130", "11220", "11040", "11080", "11240", "11150", "11190", "11030", "11120", "11010", "11020", "11070"];
 const DISTRICT_NAMES: Record<string, string> = { "11230": "강남구", "11250": "강동구", "11090": "강북구", "11160": "강서구", "11210": "관악구", "11050": "광진구", "11170": "구로구", "11180": "금천구", "11110": "노원구", "11100": "도봉구", "11060": "동대문구", "11200": "동작구", "11140": "마포구", "11130": "서대문구", "11220": "서초구", "11040": "성동구", "11080": "성북구", "11240": "송파구", "11150": "양천구", "11190": "영등포구", "11030": "용산구", "11120": "은평구", "11010": "종로구", "11020": "중구", "11070": "중랑구" };
 const SEOUL_LIBRARIES: LibraryInfo[] = [
@@ -79,6 +85,36 @@ const splitInputTerms = (value: string): string[] =>
     .split(/[\n,]/)
     .map((term) => term.trim())
     .filter((term) => term.length > 0);
+
+const trackSearchEvent = (
+  action: "submit" | "success" | "failure",
+  params: Record<string, string | number | boolean>
+) => {
+  if (typeof window === "undefined") return;
+
+  const eventParams = {
+    search_action: action,
+    ...params,
+  };
+
+  const sendWithRetry = (attempt: number) => {
+    if (typeof window.gtag === "function") {
+      window.gtag("event", "tamseo_search", eventParams);
+      return;
+    }
+    if (attempt >= 10) {
+      console.warn("GA search event 전송 실패: gtag 미초기화");
+      return;
+    }
+    window.setTimeout(() => sendWithRetry(attempt + 1), 300);
+  };
+
+  try {
+    sendWithRetry(0);
+  } catch (error) {
+    console.warn("GA search event 전송 실패", error);
+  }
+};
 
 const DistrictWheelPicker = ({
   value,
@@ -440,6 +476,11 @@ function SearchContent({
       if (!SAFE_INPUT_REGEX.test(term)) { alert(`보안 정책상 특수문자는 사용할 수 없습니다.\n입력값: "${term}"`); return; } 
     }
     if (terms.length > 5) { alert("최대 5권까지만 검색됩니다."); terms = terms.slice(0, 5); }
+    const startedAt = Date.now();
+    trackSearchEvent("submit", {
+      district_code: districtCode,
+      query_count: terms.length,
+    });
 
     if (slowLoadingTimerRef.current) clearTimeout(slowLoadingTimerRef.current);
     setSlowLoading(false);
@@ -488,12 +529,27 @@ function SearchContent({
       setResults(successfulResults);
       setEmptyTerms(mergedEmptyTerms);
       setExpandedTerms(normalizedExpandedTerms);
+      trackSearchEvent("success", {
+        district_code: districtCode,
+        query_count: terms.length,
+        successful_term_count: successfulResults.length,
+        result_book_count: successfulResults.reduce((sum, termResult) => sum + termResult.books.length, 0),
+        invalid_term_count: mergedEmptyTerms.length,
+        expanded_term_count: normalizedExpandedTerms.length,
+        duration_ms: Date.now() - startedAt,
+      });
     } catch (error) {
       console.error("Search failed", error);
       const invalidTerms = (error as Error & { invalidTerms?: string[] }).invalidTerms ?? [];
       setEmptyTerms(invalidTerms);
       setExpandedTerms([]);
       setResults([]);
+      trackSearchEvent("failure", {
+        district_code: districtCode,
+        query_count: terms.length,
+        invalid_term_count: invalidTerms.length,
+        duration_ms: Date.now() - startedAt,
+      });
     } finally {
       if (slowLoadingTimerRef.current) {
         clearTimeout(slowLoadingTimerRef.current);
