@@ -9,6 +9,18 @@
 
 ## 현재 작업
 
+### 2026-03-10 - Search Console 메타 태그 미검출 대응
+- 상태: DONE
+- 목표:
+  - 루트 문서에서 `google-site-verification` 메타 태그가 확실히 노출되도록 보강
+- 작업 항목:
+  1. DONE: `layout.tsx`에 명시적 `<head><meta ... /></head>` 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `metadata.verification.google` 유지 + `<head>`에 동일 메타 태그 명시 삽입(이중 보강)
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - main 배포 트리거(커밋/푸시)
 - 상태: DONE
 - 목표:
