@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tamseo.firstapp.kr/sitemap.xml
+Host: https://tamseo.firstapp.kr
+
+#DaumWebMasterTool:e5b9a98b6c3fae86b24ade65875a9503d905751c0f414091ede9623744fa3695:P8zQZAaDab8Pq7CTStNVnQ==

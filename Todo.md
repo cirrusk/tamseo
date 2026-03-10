@@ -9,6 +9,32 @@
 
 ## 현재 작업
 
+### 2026-03-10 - 네이버 웹마스터 메타 태그 추가
+- 상태: DONE
+- 목표:
+  - 홈페이지 `<head>`에 네이버 사이트 인증 메타 태그 추가
+- 작업 항목:
+  1. DONE: `src/app/layout.tsx` `<head>`에 `naver-site-verification` 메타 태그 추가
+  2. DONE: 빌드 검증 및 결과 기록
+- 결과:
+  - `<meta name="naver-site-verification" content="d931f3ea3f8c559e011ba8ff1703885fddde922b" />` 추가
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
+### 2026-03-10 - Daum 웹마스터 PIN robots.txt 반영
+- 상태: DONE
+- 목표:
+  - robots.txt 하단에 Daum 웹마스터 PIN 라인을 정확히 추가
+- 작업 항목:
+  1. DONE: `app/robots.ts` -> `public/robots.txt` 정적 파일 방식으로 전환
+  2. DONE: PIN 코드 라인 추가 및 빌드 검증
+- 결과:
+  - `src/app/robots.ts` 제거
+  - `public/robots.txt` 생성 및 하단에 Daum PIN 코드 라인 추가
+  - `Sitemap`/`Host` 라인 포함
+  - `npm run build` 성공
+  - 기존 ESLint 경고 1건(`<img>` 사용) 유지
+
 ### 2026-03-10 - GA 검색 이벤트 표준(`search`) 동시 전송
 - 상태: DONE
 - 목표:

@@ -64,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <head>
         <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
+        <meta name="naver-site-verification" content="d931f3ea3f8c559e011ba8ff1703885fddde922b" />
       </head>
       <body className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] selection:bg-black selection:text-white antialiased" style={{ fontFamily: "'Pretendard', sans-serif" }}>
         <NavBar />
